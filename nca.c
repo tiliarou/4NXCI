@@ -159,7 +159,7 @@ void nca_process(nca_ctx_t *ctx, char *filepath) {
 	// Get file size
 	FILE *file = fopen(filepath, "rb");
 	fseeko64(file,0,SEEK_END);
-	uint64_t filesize = ftell(file);
+	uint64_t filesize = (uint64_t)ftello64(file);
 	fseeko64(file,0,SEEK_SET);
 
 	// Set file size for creating .cnmt.xml
