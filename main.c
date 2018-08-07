@@ -10,6 +10,7 @@
 #include "pki.h"
 #include "xci.h"
 #include "extkeys.h"
+#include "cnmt.h"
 
 /* 4NXCI by The-4n
    Based on hactool by ScriesM
@@ -18,6 +19,7 @@
 static char *prog_name = "4nxci";
 cnmt_xml_t cnmt_xml;
 nsp_create_info_t nsp_create_info[7];
+application_cnmt_content_t application_cnmt_contents[3];
 
 /* Print usage. Taken largely from ctrtool. */
 static void usage(void) {
@@ -38,6 +40,7 @@ int main(int argc, char **argv) {
     memset(&tool_ctx, 0, sizeof(tool_ctx));
     memset(input_name, 0, sizeof(input_name));
     memset(&cnmt_xml,0,sizeof(cnmt_xml));
+    memset(&cnmt_xml,0,sizeof(application_cnmt_contents));
     filepath_init(&keypath);
 
     pki_initialize_keyset(&tool_ctx.settings.keyset, KEYSET_RETAIL);

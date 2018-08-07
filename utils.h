@@ -45,17 +45,15 @@ FILE *open_key_file(const char *prefix);
 validity_t check_memory_hash_table(FILE *f_in, unsigned char *hash_table, uint64_t data_ofs, uint64_t data_len, uint64_t block_size, int full_block);
 validity_t check_file_hash_table(FILE *f_in, uint64_t hash_ofs, uint64_t data_ofs, uint64_t data_len, uint64_t block_size, int full_block);
 
-#ifdef _MSC_VER
-inline int fseeko64(FILE *__stream, long long __off, int __whence)
-{
-    return _fseeki64(__stream, __off, __whence);
-}
-#elif __MINGW32__
+#ifdef __MINGW32__
     /* MINGW32 does not have 64-bit offsets even with large file support. */
     extern int fseeko64 (FILE *__stream, _off64_t __off, int __whence);
+	#define LINEBREAKER 'x0A'
 #else
     /* off_t is 64-bit with large file support */
     #define fseeko64 fseek
+	#define ftello64 ftell
+	#define LINEBREAKER '\x0D\x0A'
 #endif
 
 static inline uint64_t media_to_real(uint64_t media) {

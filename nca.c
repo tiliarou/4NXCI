@@ -2,7 +2,6 @@
 #include <libgen.h>
 #include <string.h>
 #include <inttypes.h>
-#include "nsp.h"
 #include "nca.h"
 #include "aes.h"
 #include "pki.h"
@@ -11,6 +10,7 @@
 #include "utils.h"
 #include "extkeys.h"
 #include "filepath.h"
+#include "nsp.h"
 
 /* Initialize the context. */
 void nca_init(nca_ctx_t *ctx) {
@@ -92,7 +92,7 @@ char *nca_get_content_type(nca_ctx_t *ctx) {
 
 
 // For writing xml tags in proper order
-int nca_type_to_inex(uint8_t nca_type)
+int nca_type_to_index(uint8_t nca_type)
 {
 	switch (nca_type) {
 	case 0:
@@ -113,6 +113,124 @@ int nca_type_to_inex(uint8_t nca_type)
 	}
 }
 
+int nca_type_to_cnmt_type(uint8_t nca_type)
+{
+	switch (nca_type) {
+	case 0:
+		return 1;
+		break;
+	case 1:
+		return 3;
+		break;
+	case 2:
+		return 5;
+		break;
+	default:
+    	fprintf(stderr, "Unknown NCA content type");
+    	exit(EXIT_FAILURE);
+	}
+}
+
+// Heavily modify meta file
+void meta_process(nca_ctx_t *ctx)
+{
+	// Set header and pfs0 superblock values for cnmt.nca
+	ctx->header.nca_size = 0x1000;
+	ctx->header.section_entries[0].media_start_offset = 0x06;
+	ctx->header.section_entries[0].media_end_offset = 0x08;
+	ctx->header.fs_headers[0].crypt_type = 0x01;
+	ctx->header.fs_headers[0].pfs0_superblock.block_size = 0x1000;
+	ctx->header.fs_headers[0].pfs0_superblock.hash_table_size = 0x20;
+	ctx->header.fs_headers[0].pfs0_superblock.pfs0_offset = 0x200;
+	ctx->header.fs_headers[0].pfs0_superblock.pfs0_size = 0x158;
+
+	pfs0_t pfs0 = {
+			.hashtable.padding = {0},
+			.header.magic = 0x30534650,					// PFS0
+			.header.num_files = 0x01,					// Application_tid.cnmt
+			.header.string_table_size = 0x38,
+			.header.reserved = 0,
+			.file_entry.offset = 0,
+			.file_entry.size = 0xF8,
+			.file_entry.string_table_offset = 0,
+			.file_entry.reserved = 0,
+			.string_table = {'\0'},
+			.application_cnmt_header.version = 0,
+			.application_cnmt_header.type = 0x80,		//  Regular application
+			.application_cnmt_header.offset = 0x10,
+			.application_cnmt_header.content_count = 0x03,
+			.application_cnmt_header.meta_count = 0,
+			.application_cnmt_header.unknown2 = {0},
+			.application_cnmt_header.unknown1 = 0,
+			.application_cnmt_header.tid = ctx->header.title_id,
+			.application_cnmt_header.patchid = ctx->header.title_id + 0x800,
+			.application_cnmt_header.sysversion = 0,
+			.digest = {0},
+			.padding = {0}
+	};
+
+	// String table = Application_tid.cnmt
+	strcat(pfs0.string_table,"Application_");
+	strncat(pfs0.string_table,cnmt_xml.tid,16);
+	strcat(pfs0.string_table,".cnmt");
+
+	memcpy(pfs0.application_cnmt_contents,application_cnmt_contents,sizeof(application_cnmt_contents));
+
+	// Calculate PFS0 hash
+	sha_ctx_t *pfs0_sha_ctx = new_sha_ctx(HASH_TYPE_SHA256,0);
+	unsigned char *pfs0_hash_result = (unsigned char*)calloc(1,33);
+	sha_update(pfs0_sha_ctx,&pfs0.header,sizeof(pfs0.header));
+	sha_update(pfs0_sha_ctx,&pfs0.file_entry,sizeof(pfs0.file_entry));
+	sha_update(pfs0_sha_ctx,&pfs0.string_table,sizeof(pfs0.string_table));
+	sha_update(pfs0_sha_ctx,&pfs0.application_cnmt_header,sizeof(pfs0.application_cnmt_header));
+	sha_update(pfs0_sha_ctx,&pfs0.application_cnmt_contents,sizeof(pfs0.application_cnmt_contents));
+	sha_update(pfs0_sha_ctx,&pfs0.digest,sizeof(pfs0.digest));
+	sha_get_hash(pfs0_sha_ctx,pfs0_hash_result);
+	memcpy(pfs0.hashtable.hash,pfs0_hash_result,32);
+
+	meta_save(ctx, &pfs0);
+
+	// Calculate PFS0 superblock hash
+	sha_ctx_t *pfs0_superblock_sha_ctx = new_sha_ctx(HASH_TYPE_SHA256,0);
+	unsigned char *pfs0_superblock_hash_result = (unsigned char*)calloc(1,33);
+	sha_update(pfs0_superblock_sha_ctx,pfs0_hash_result,32);
+	sha_get_hash(pfs0_superblock_sha_ctx,pfs0_superblock_hash_result);
+	memcpy(ctx->header.fs_headers[0].pfs0_superblock.master_hash,pfs0_superblock_hash_result,32);
+	free(pfs0_superblock_hash_result);
+	free(pfs0_hash_result);
+
+	// Calculate section hash
+	sha_ctx_t *pfs0_section_sha_ctx = new_sha_ctx(HASH_TYPE_SHA256,0);
+	unsigned char *pfs0_section_hash_result = (unsigned char*)calloc(1,33);
+	uint8_t pfs0_section_zeros[0x1B0] = { 0 };
+	sha_update(pfs0_section_sha_ctx,&ctx->header.fs_headers[0]._0x0,sizeof(ctx->header.fs_headers[0]._0x0));
+	sha_update(pfs0_section_sha_ctx,&ctx->header.fs_headers[0]._0x1,sizeof(ctx->header.fs_headers[0]._0x1));
+	sha_update(pfs0_section_sha_ctx,&ctx->header.fs_headers[0].partition_type,sizeof(ctx->header.fs_headers[0].partition_type));
+	sha_update(pfs0_section_sha_ctx,&ctx->header.fs_headers[0].fs_type,sizeof(ctx->header.fs_headers[0].fs_type));
+	sha_update(pfs0_section_sha_ctx,&ctx->header.fs_headers[0].crypt_type,sizeof(ctx->header.fs_headers[0].crypt_type));
+	sha_update(pfs0_section_sha_ctx,&ctx->header.fs_headers[0]._0x5,sizeof(ctx->header.fs_headers[0]._0x5));
+	sha_update(pfs0_section_sha_ctx,&ctx->header.fs_headers[0].pfs0_superblock.master_hash,sizeof(ctx->header.fs_headers[0].pfs0_superblock.master_hash));
+	sha_update(pfs0_section_sha_ctx,&ctx->header.fs_headers[0].pfs0_superblock.block_size,sizeof(ctx->header.fs_headers[0].pfs0_superblock.block_size));
+	sha_update(pfs0_section_sha_ctx,&ctx->header.fs_headers[0].pfs0_superblock.always_2,sizeof(ctx->header.fs_headers[0].pfs0_superblock.always_2));
+	sha_update(pfs0_section_sha_ctx,&ctx->header.fs_headers[0].pfs0_superblock.hash_table_offset,sizeof(ctx->header.fs_headers[0].pfs0_superblock.hash_table_offset));
+	sha_update(pfs0_section_sha_ctx,&ctx->header.fs_headers[0].pfs0_superblock.hash_table_size,sizeof(ctx->header.fs_headers[0].pfs0_superblock.hash_table_size));
+	sha_update(pfs0_section_sha_ctx,&ctx->header.fs_headers[0].pfs0_superblock.pfs0_offset,sizeof(ctx->header.fs_headers[0].pfs0_superblock.pfs0_offset));
+	sha_update(pfs0_section_sha_ctx,&ctx->header.fs_headers[0].pfs0_superblock.pfs0_size,sizeof(ctx->header.fs_headers[0].pfs0_superblock.pfs0_size));
+	sha_update(pfs0_section_sha_ctx,&pfs0_section_zeros,sizeof(pfs0_section_zeros));
+	sha_get_hash(pfs0_section_sha_ctx,pfs0_section_hash_result);
+	memcpy(ctx->header.section_hashes[0],pfs0_section_hash_result,32);
+	free(pfs0_section_hash_result);
+
+}
+
+void meta_save(nca_ctx_t *ctx, pfs0_t *pfs0)
+{
+	fseeko64(ctx->file, 0xC00, SEEK_SET);
+	if (!fwrite(pfs0, sizeof(*pfs0) , 1, ctx->file)) {
+		fprintf(stderr,"Unable to write meta");
+		exit(EXIT_FAILURE);
+	}
+}
 void nca_process(nca_ctx_t *ctx, char *filepath) {
     /* Decrypt header */
     if (!nca_decrypt_header(ctx)) {
@@ -133,24 +251,26 @@ void nca_process(nca_ctx_t *ctx, char *filepath) {
     ctx->format_version = NCAVERSION_NCA3;
 
     // Set required values for creating .cnmt.xml
-    int index = nca_type_to_inex(ctx->header.content_type);
+    int index = nca_type_to_index(ctx->header.content_type);
     cnmt_xml.contents[index].type = nca_get_content_type(ctx);
-    cnmt_xml.contents[index].keygeneration = (char)ctx->crypto_type;
+    cnmt_xml.contents[index].keygeneration = ctx->crypto_type;
     if (index == 3) {
-    	char *tid = (char*)malloc(17);
+    	char *tid = (char*)calloc(1,17);
     	//Convert tile id to hex
-    	sprintf(tid, "%016" PRIx64, (uint64_t)ctx->header.title_id);
+    	sprintf(tid, "%016" PRIx64, ctx->header.title_id);
     	cnmt_xml.tid = tid;
-    	cnmt_xml.filepath = (char*)malloc(strlen(filepath) + 1);
+    	cnmt_xml.filepath = (char*)calloc(1,strlen(filepath) + 1);
     	strcpy(cnmt_xml.filepath,filepath);
     	//Remove .nca and replace it with .xml
     	strip_ext(cnmt_xml.filepath);
     	strcat(cnmt_xml.filepath,".xml");
+
+    	meta_process(ctx);
     }
 
     /* Re-encrypt header */
     nca_encrypt_header(ctx);
-    printf("Patchig %s\n",filepath);
+    printf("Patching %s\n",filepath);
     nca_save(ctx);
 
     // Calculate SHA-256 hash for .cnmt.xml
@@ -158,23 +278,13 @@ void nca_process(nca_ctx_t *ctx, char *filepath) {
 
 	// Get file size
 	FILE *file = fopen(filepath, "rb");
-	fseeko64(file,0,SEEK_END);
-	uint64_t filesize = ftell(file);
-	fseeko64(file,0,SEEK_SET);
-
-	// Set file size for creating .cnmt.xml
-	cnmt_xml.contents[index].size = filesize;
-	// Set file size for creating nsp
-	nsp_create_info[index].filesize = filesize;
-
-	// Set filepath for creating nsp
-	nsp_create_info[index].filepath = (char*)malloc(strlen(filepath) + 1);
-	strcpy(nsp_create_info[index].filepath,filepath);
-
 	if (file == NULL) {
 	    fprintf(stderr, "Failed to open %s!\n", filepath);
 	    exit(EXIT_FAILURE);
 	}
+	fseeko64(file,0,SEEK_END);
+	uint64_t filesize = (uint64_t)ftello64(file);
+	fseeko64(file,0,SEEK_SET);
 
     uint64_t read_size = 0x4000000; // 4 MB buffer.
 	unsigned char *buf = malloc(read_size);
@@ -193,23 +303,50 @@ void nca_process(nca_ctx_t *ctx, char *filepath) {
 	    sha_update(sha_ctx,buf,read_size);
 	    ofs += read_size;
 	}
-	unsigned char *hash_result = (unsigned char*)malloc(33);
+	unsigned char *hash_result = (unsigned char*)calloc(1,33);
 	sha_get_hash(sha_ctx,hash_result);
 
+	// Set file size for creating .cnmt.xml
+	cnmt_xml.contents[index].size = filesize;
+	// Set file size for creating nsp
+	nsp_create_info[index].filesize = filesize;
+
+	// Set filepath for creating nsp
+	nsp_create_info[index].filepath = (char*)calloc(1,strlen(filepath) + 1);
+	strcpy(nsp_create_info[index].filepath,filepath);
+
+
 	// Convert hash to hex string
-	char* hash_hex = (char*)malloc(65);
+	char *hash_hex = (char*)calloc(1,65);
 	hexBinaryString(hash_result,32,hash_hex,65);
 	cnmt_xml.contents[index].hash = hash_hex;
 
-	// Get id for creating .cnmt.xml
-	char *id = (char*)malloc(strlen(basename(filepath)) + 1);
-	strcpy(id,basename(filepath));
-	strip_ext(id);
-	// Remove .cnmt
-	if (index == 3)
-		strip_ext(id);
+	// Get id for creating .cnmt.xml, id = first 16 bytes of hash
+	strncpy(cnmt_xml.contents[index].id,hash_hex,32);
 
-	cnmt_xml.contents[index].id = id;
+	// Set new filename for creating nsp
+	if (index == 3) {
+		nsp_create_info[index].nsp_filename = (char*)calloc(1,42);
+		strcpy(nsp_create_info[index].nsp_filename,cnmt_xml.contents[index].id);
+		strcat(nsp_create_info[index].nsp_filename,".cnmt.nca");
+	}
+	else {
+		nsp_create_info[index].nsp_filename = (char*)calloc(1,37);
+		strcpy(nsp_create_info[index].nsp_filename,cnmt_xml.contents[index].id);
+		strcat(nsp_create_info[index].nsp_filename,".nca");
+	}
+
+	// Set required values for creating application.cnmt
+	if (index != 3)
+	{
+		uint8_t cnmt_type = nca_type_to_cnmt_type(index);
+		uint8_t padding = 0;
+		memcpy(&application_cnmt_contents[index].hash,hash_result,32);
+		memcpy(&application_cnmt_contents[index].ncaid,hash_result,16);
+		memcpy(&application_cnmt_contents[index].size,&filesize,6);
+		memcpy(&application_cnmt_contents[index].type,&cnmt_type,1);
+		memcpy(&application_cnmt_contents[index].padding, &padding ,1);
+	}
 
 	fclose(file);
 	free(buf);

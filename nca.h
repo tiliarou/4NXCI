@@ -10,7 +10,7 @@
 #include "ivfc.h"
 #include "bktr.h"
 #include "nca0_romfs.h"
-
+#include "cnmt.h"
 
 #define MAGIC_NCA3 0x3341434E /* "NCA3" */
 #define MAGIC_NCA0 0x3041434E /* "NCA0" */
@@ -186,7 +186,10 @@ int nca_decrypt_header(nca_ctx_t *ctx);
 void nca_encrypt_header(nca_ctx_t *ctx);
 void nca_free_section_contexts(nca_ctx_t *ctx);
 char *nca_get_content_type(nca_ctx_t *ctx);
-int nca_type_to_inex(uint8_t nca_type);
+int nca_type_to_index(uint8_t nca_type);
+int nca_type_to_cnmt_type(uint8_t nca_type);
 void nca_decrypt_key_area(nca_ctx_t *ctx);
+void meta_process(nca_ctx_t *ctx);
+void meta_save(nca_ctx_t *ctx, pfs0_t *pfs0);
 
 #endif

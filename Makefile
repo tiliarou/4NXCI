@@ -28,7 +28,7 @@ main.o: main.c pki.h types.h
 
 pki.o: pki.h aes.h types.h
 
-nsp.o: nsp.h dummy_files.h
+nsp.o: nsp.h cnmt.h dummy_files.h
 
 nca.o: nca.h aes.h sha.h bktr.h filepath.h types.h pfs0.h npdm.h nca0_romfs.h
 
