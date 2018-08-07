@@ -57,6 +57,15 @@ void nca_free_section_contexts(nca_ctx_t *ctx) {
     }
 }
 
+/* Updates the CTR for an offset. */
+void nca_update_ctr(unsigned char *ctr, uint64_t ofs) {
+    ofs >>= 4;
+    for (unsigned int j = 0; j < 0x8; j++) {
+        ctr[0x10-j-1] = (unsigned char)(ofs & 0xFF);
+        ofs >>= 8;
+    }
+}
+
 static void nca_save(nca_ctx_t *ctx) {
     /* Rewrite header */
 	fseeko64(ctx->file, 0, SEEK_SET);
@@ -138,7 +147,7 @@ void meta_process(nca_ctx_t *ctx)
 	ctx->header.nca_size = 0x1000;
 	ctx->header.section_entries[0].media_start_offset = 0x06;
 	ctx->header.section_entries[0].media_end_offset = 0x08;
-	ctx->header.fs_headers[0].crypt_type = 0x01;
+	ctx->header.fs_headers[0].crypt_type = 0x03;
 	ctx->header.fs_headers[0].pfs0_superblock.block_size = 0x1000;
 	ctx->header.fs_headers[0].pfs0_superblock.hash_table_size = 0x20;
 	ctx->header.fs_headers[0].pfs0_superblock.pfs0_offset = 0x200;
@@ -225,6 +234,14 @@ void meta_process(nca_ctx_t *ctx)
 
 void meta_save(nca_ctx_t *ctx, pfs0_t *pfs0)
 {
+	// Decrypt key area to get keys and encrypt new pfs0
+	nca_decrypt_key_area(ctx);
+	ctx->section_contexts[0].aes = new_aes_ctx(ctx->decrypted_keys[2], 16, AES_MODE_CTR);
+	ctx->section_contexts[0].offset = media_to_real(ctx->header.section_entries[0].media_start_offset);
+	nca_update_ctr(ctx->section_contexts[0].ctr, ctx->section_contexts[0].offset);
+	aes_setiv(ctx->section_contexts[0].aes, ctx->section_contexts[0].ctr, 0x10);
+	aes_encrypt(ctx->section_contexts[0].aes, pfs0, pfs0, sizeof(*pfs0));
+
 	fseeko64(ctx->file, 0xC00, SEEK_SET);
 	if (!fwrite(pfs0, sizeof(*pfs0) , 1, ctx->file)) {
 		fprintf(stderr,"Unable to write meta");
