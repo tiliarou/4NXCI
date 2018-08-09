@@ -191,5 +191,6 @@ int nca_type_to_cnmt_type(uint8_t nca_type);
 void nca_decrypt_key_area(nca_ctx_t *ctx);
 void meta_process(nca_ctx_t *ctx);
 void meta_save(nca_ctx_t *ctx, pfs0_t *pfs0);
+void nca_update_ctr(unsigned char *ctr, uint64_t ofs);
 
 #endif
