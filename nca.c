@@ -309,7 +309,7 @@ void exefs_npdm_process(nca_ctx_t *ctx)
 }
 
 // Heavily modify header and rebuild cnmt
-void cnmt_nca_process(nca_ctx_t *ctx)
+void cnmt_nca_process(nca_ctx_t *ctx, char *filepath)
 {
 	// Set header and pfs0 superblock values for cnmt.nca
 	ctx->header.nca_size = 0x1000;
@@ -365,7 +365,7 @@ void cnmt_nca_process(nca_ctx_t *ctx)
 	sha_get_hash(pfs0_sha_ctx,pfs0_hash_result);
 	memcpy(pfs0.hashtable.hash,pfs0_hash_result,32);
 
-	cnmt_nca_save(ctx, &pfs0);
+	cnmt_nca_save(ctx, &pfs0, filepath);
 
 	// Calculate PFS0 superblock master hash
 	sha_ctx_t *pfs0_superblock_sha_ctx = new_sha_ctx(HASH_TYPE_SHA256,0);
@@ -400,20 +400,44 @@ void cnmt_nca_process(nca_ctx_t *ctx)
 
 }
 
-void cnmt_nca_save(nca_ctx_t *ctx, pfs0_t *pfs0)
+void cnmt_nca_save(nca_ctx_t *ctx, pfs0_t *pfs0, char *filepath)
 {
 	// Decrypt key area to get keys and encrypt new pfs0
 	nca_decrypt_key_area(ctx);
 	ctx->section_contexts[0].aes = new_aes_ctx(ctx->decrypted_keys[2], 16, AES_MODE_CTR);
 	ctx->section_contexts[0].offset = media_to_real(ctx->header.section_entries[0].media_start_offset);
-	nca_update_ctr(ctx->section_contexts[0].ctr, ctx->section_contexts[0].offset);
+	ctx->section_contexts[0].header = &ctx->header.fs_headers[0];
+    uint64_t ofs = ctx->section_contexts[0].offset >> 4;
+    for (unsigned int j = 0; j < 0x8; j++) {
+        ctx->section_contexts[0].ctr[j] = ctx->section_contexts[0].header->section_ctr[0x8-j-1];
+        ctx->section_contexts[0].ctr[0x10-j-1] = (unsigned char)(ofs & 0xFF);
+        ofs >>= 8;
+    }
 	aes_setiv(ctx->section_contexts[0].aes, ctx->section_contexts[0].ctr, 0x10);
 	aes_encrypt(ctx->section_contexts[0].aes, pfs0, pfs0, sizeof(*pfs0));
+	// Erase file contents and write PFS0
+	fclose(ctx->file);
+	ctx->file = fopen(filepath, "wb");
+	if (ctx->file == NULL) {
+	    fprintf(stderr, "Failed to open %s!\n", filepath);
+	    exit(EXIT_FAILURE);
+	}
+	uint8_t header_reserved[0xC00] = {0};
+	if (!fwrite(header_reserved, 0xC00 , 1 , ctx->file)) {
+		fprintf(stderr,"Unable to write cnmt");
+		exit(EXIT_FAILURE);
+	}
 
-	fseeko64(ctx->file, 0xC00, SEEK_SET);
 	if (!fwrite(pfs0, sizeof(*pfs0) , 1, ctx->file)) {
 		fprintf(stderr,"Unable to write cnmt");
 		exit(EXIT_FAILURE);
+	}
+	// Reopen in edit mode
+	fclose(ctx->file);
+	ctx->file = fopen(filepath, "rb+");
+	if (ctx->file == NULL) {
+	    fprintf(stderr, "Failed to open %s!\n", filepath);
+	    exit(EXIT_FAILURE);
 	}
 }
 void nca_process(nca_ctx_t *ctx, char *filepath) {
@@ -453,7 +477,7 @@ void nca_process(nca_ctx_t *ctx, char *filepath) {
     	strip_ext(cnmt_xml.filepath);
     	strcat(cnmt_xml.filepath,".xml");
 
-    	cnmt_nca_process(ctx);
+    	cnmt_nca_process(ctx, filepath);
     }
 
     /* Re-encrypt header */

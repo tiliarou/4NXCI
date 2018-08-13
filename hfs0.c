@@ -49,10 +49,10 @@ void hfs0_process(hfs0_ctx_t *ctx) {
 int process_extracted_nca(filepath_t *filepath,nxci_ctx_t *tool)
 {
     nca_ctx_t nca_ctx;
-	nca_init(&nca_ctx);
+	 nca_init(&nca_ctx);
 	nca_ctx.tool_ctx = tool;
 	if (!(nca_ctx.file = os_fopen(filepath->os_path, OS_MODE_EDIT))) {
-	        fprintf(stderr, "unable to open %s: %s\n", filepath->char_path, strerror(errno));
+	        fprintf(stderr, "unable to open %s: %s\n", filepath->os_path, strerror(errno));
 	        return 0;
 	    }
 
