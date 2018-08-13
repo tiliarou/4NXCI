@@ -7,6 +7,8 @@ It's in early stages and there are lots to be done
 You need to place your keyset file with "keys.dat" filename in the same folder as program  
 
 4NXCI is based on hactool by SciresM [hactool](https://github.com/SciresM/hactool)
+  
+Thanks: SciresM, Rajkosto
 
 ## Licensing
 
