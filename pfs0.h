@@ -43,4 +43,21 @@ typedef struct {
     pfs0_header_t *header;
 } pfs0_ctx_t;
 
+static inline pfs0_file_entry_t *pfs0_get_file_entry(pfs0_header_t *hdr, uint32_t i) {
+    if (i >= hdr->num_files) return NULL;
+    return (pfs0_file_entry_t *)((char *)(hdr) + sizeof(*hdr) + i * sizeof(pfs0_file_entry_t));
+}
+
+static inline char *pfs0_get_string_table(pfs0_header_t *hdr) {
+    return (char *)(hdr) + sizeof(*hdr) + hdr->num_files * sizeof(pfs0_file_entry_t);
+}
+
+static inline uint64_t pfs0_get_header_size(pfs0_header_t *hdr) {
+    return sizeof(*hdr) + hdr->num_files * sizeof(pfs0_file_entry_t) + hdr->string_table_size;
+}
+
+static inline char *pfs0_get_file_name(pfs0_header_t *hdr, uint32_t i) {
+    return pfs0_get_string_table(hdr) + pfs0_get_file_entry(hdr, i)->string_table_offset;
+}
+
 #endif

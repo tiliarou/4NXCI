@@ -66,6 +66,62 @@ void nca_update_ctr(unsigned char *ctr, uint64_t ofs) {
     }
 }
 
+/* Seek to an offset within a section. */
+void nca_section_fseek(nca_section_ctx_t *ctx, uint64_t offset) {
+        fseeko64(ctx->file, (ctx->offset + offset) & ~0xF, SEEK_SET);
+        ctx->cur_seek = (ctx->offset + offset) & ~0xF;
+        nca_update_ctr(ctx->ctr, ctx->offset + offset);
+        ctx->sector_ofs = offset & 0xF;
+}
+
+size_t nca_section_fread(nca_section_ctx_t *ctx, void *buffer, size_t count) {
+    size_t read = 0; /* XXX */
+    char block_buf[0x10];
+    if (ctx->sector_ofs) {
+    	if ((read = fread(block_buf, 1, 0x10, ctx->file)) != 0x10) {
+        	return 0;
+        }
+        aes_setiv(ctx->aes, ctx->ctr, 0x10);
+        aes_decrypt(ctx->aes, block_buf, block_buf, 0x10);
+        if (count + ctx->sector_ofs < 0x10) {
+        	memcpy(buffer, block_buf + ctx->sector_ofs, count);
+         	ctx->sector_ofs += count;
+        	nca_section_fseek(ctx, ctx->cur_seek - ctx->offset);
+        	return count;
+        }
+        memcpy(buffer, block_buf + ctx->sector_ofs, 0x10 - ctx->sector_ofs);
+        uint32_t read_in_block = 0x10 - ctx->sector_ofs;
+        nca_section_fseek(ctx, ctx->cur_seek - ctx->offset + 0x10);
+        return read_in_block + nca_section_fread(ctx, (char *)buffer + read_in_block, count - read_in_block);
+    }
+    if ((read = fread(buffer, 1, count, ctx->file)) != count) {
+    	return 0;
+    }
+    aes_setiv(ctx->aes, ctx->ctr, 16);
+    aes_decrypt(ctx->aes, buffer, buffer, count);
+    nca_section_fseek(ctx, ctx->cur_seek - ctx->offset + count);
+    return read;
+}
+
+size_t nca_section_fwrite(nca_section_ctx_t *ctx, void *buffer, size_t count, uint64_t offset) {
+	nca_section_fseek(ctx,offset);
+	uint8_t sector_ofs = ctx->sector_ofs;
+	uint64_t temp_buff_size = sector_ofs + count;
+	unsigned char *temp_buff = (unsigned char*)malloc(temp_buff_size);
+	nca_section_fseek(ctx,ctx->cur_seek - ctx->offset);
+	nca_section_fread(ctx,temp_buff,sector_ofs);
+	nca_section_fseek(ctx,ctx->cur_seek - ctx->offset);
+	memcpy(temp_buff+sector_ofs,buffer,count);
+    aes_setiv(ctx->aes, ctx->ctr, 16);
+    aes_encrypt(ctx->aes, temp_buff, temp_buff, temp_buff_size);
+	if (!fwrite(temp_buff, 1, temp_buff_size, ctx->file)) {
+		fprintf(stderr,"Unable to modify NCA");
+		return 0;
+	}
+	return count;
+}
+
+
 static void nca_save(nca_ctx_t *ctx) {
     /* Rewrite header */
 	fseeko64(ctx->file, 0, SEEK_SET);
@@ -140,8 +196,120 @@ int nca_type_to_cnmt_type(uint8_t nca_type)
 	}
 }
 
-// Heavily modify meta file
-void meta_process(nca_ctx_t *ctx)
+// Corrupts ACID sig
+void exefs_npdm_process(nca_ctx_t *ctx)
+{
+	pfs0_header_t pfs0_header;
+	npdm_t npdm_header;
+	uint64_t pfs0_start_offset = 0;
+	uint64_t file_entry_table_offset = 0;
+	uint64_t file_entry_table_size = 0;
+	uint64_t meta_offset = 0;
+	uint64_t acid_offset = 0;
+	uint64_t raw_data_offset = 0;
+	uint64_t file_raw_data_offset = 0;
+	uint64_t block_start_offset = 0;
+	uint64_t block_hash_table_offset = 0;
+
+	nca_decrypt_key_area(ctx);
+
+	// Looking for main.npdm / META
+	for (int i = 0; i < 4; i++) {
+		if (ctx->header.section_entries[i].media_start_offset) {
+			if (ctx->header.fs_headers[i].partition_type == PARTITION_PFS0 && ctx->header.fs_headers[i].fs_type == FS_TYPE_PFS0 && ctx->header.fs_headers[i].crypt_type == CRYPT_CTR)  {
+				ctx->section_contexts[i].aes = new_aes_ctx(ctx->decrypted_keys[2], 16, AES_MODE_CTR);
+				ctx->section_contexts[i].offset = media_to_real(ctx->header.section_entries[i].media_start_offset);
+				ctx->section_contexts[i].sector_ofs = 0;
+				ctx->section_contexts[i].file = ctx->file;
+				ctx->section_contexts[i].crypt_type = CRYPT_CTR;
+				ctx->section_contexts[i].header = &ctx->header.fs_headers[i];
+	            uint64_t ofs = ctx->section_contexts[i].offset >> 4;
+	            for (unsigned int j = 0; j < 0x8; j++) {
+	                ctx->section_contexts[i].ctr[j] = ctx->section_contexts[i].header->section_ctr[0x8-j-1];
+	                ctx->section_contexts[i].ctr[0x10-j-1] = (unsigned char)(ofs & 0xFF);
+	                ofs >>= 8;
+	            }
+
+				// Read and decrypt PFS0 header
+				pfs0_start_offset = ctx->header.fs_headers[i].pfs0_superblock.pfs0_offset;
+				nca_section_fseek(&ctx->section_contexts[i],pfs0_start_offset);
+				nca_section_fread(&ctx->section_contexts[i],&pfs0_header,sizeof(pfs0_header));
+				// Read and decrypt file entry table
+				file_entry_table_offset = pfs0_start_offset + sizeof(pfs0_header);
+				file_entry_table_size = sizeof(pfs0_file_entry_t) * pfs0_header.num_files;
+				pfs0_file_entry_t *pfs0_file_entry_table = (pfs0_file_entry_t*)malloc(file_entry_table_size);
+				nca_section_fseek(&ctx->section_contexts[i],file_entry_table_offset);
+				nca_section_fread(&ctx->section_contexts[i],pfs0_file_entry_table,file_entry_table_size);
+
+				// Looking for META magic
+				uint32_t magic = 0;
+				raw_data_offset = file_entry_table_offset + file_entry_table_size + pfs0_header.string_table_size;
+				for (unsigned int i2 = 0; i2 < pfs0_header.num_files; i2++) {
+					file_raw_data_offset = raw_data_offset + pfs0_file_entry_table[i2].offset;
+					nca_section_fseek(&ctx->section_contexts[i],file_raw_data_offset);
+					nca_section_fread(&ctx->section_contexts[i],&magic,sizeof(magic));
+					if (magic == MAGIC_META) {
+						// Read and decrypt npdm header
+						meta_offset = file_raw_data_offset;
+						nca_section_fseek(&ctx->section_contexts[i],meta_offset);
+						nca_section_fread(&ctx->section_contexts[i],&npdm_header,sizeof(npdm_header));
+
+						// Mix some water with acid (Corrupt ACID sig)
+						acid_offset = meta_offset + npdm_header.acid_offset;
+						uint8_t acid_sig_byte = 0;
+						nca_section_fseek(&ctx->section_contexts[i],acid_offset);
+						nca_section_fread(&ctx->section_contexts[i],&acid_sig_byte,1);
+						if (acid_sig_byte == 0xFF)
+							acid_sig_byte -= 0x01;
+						else
+							acid_sig_byte += 0x01;
+						nca_section_fwrite(&ctx->section_contexts[i],&acid_sig_byte,0x01,acid_offset);
+
+						// Calculate new block hash
+						block_hash_table_offset = (0x20 * ((acid_offset - ctx->header.fs_headers[i].pfs0_superblock.pfs0_offset)/ ctx->header.fs_headers[i].pfs0_superblock.block_size)) + ctx->header.fs_headers[i].pfs0_superblock.hash_table_offset;
+						block_start_offset = (((acid_offset - ctx->header.fs_headers[i].pfs0_superblock.pfs0_offset) / ctx->header.fs_headers[i].pfs0_superblock.block_size) * ctx->header.fs_headers[i].pfs0_superblock.block_size) + ctx->header.fs_headers[i].pfs0_superblock.pfs0_offset;
+						unsigned char *block_data = (unsigned char*)malloc(ctx->header.fs_headers[i].pfs0_superblock.block_size);
+						unsigned char *block_hash = (unsigned char*)malloc(0x20);
+						nca_section_fseek(&ctx->section_contexts[i],block_start_offset);
+						nca_section_fread(&ctx->section_contexts[i],block_data,ctx->header.fs_headers[i].pfs0_superblock.block_size);
+						sha_ctx_t *pfs0_sha_ctx = new_sha_ctx(HASH_TYPE_SHA256,0);
+						sha_update(pfs0_sha_ctx,block_data,ctx->header.fs_headers[i].pfs0_superblock.block_size);
+						sha_get_hash(pfs0_sha_ctx,block_hash);
+						nca_section_fwrite(&ctx->section_contexts[i],block_hash,0x20,block_hash_table_offset);
+						free(block_hash);
+						free(block_data);
+
+						// Calculate PFS0 sueperblock hash
+						sha_ctx_t *hash_table_ctx = new_sha_ctx(HASH_TYPE_SHA256,0);
+						unsigned char *hash_table = (unsigned char*)malloc(ctx->header.fs_headers[i].pfs0_superblock.hash_table_size);
+						unsigned char *master_hash = (unsigned char*)malloc(0x20);
+						nca_section_fseek(&ctx->section_contexts[i],ctx->header.fs_headers[i].pfs0_superblock.hash_table_offset);
+						nca_section_fread(&ctx->section_contexts[i],hash_table,ctx->header.fs_headers[i].pfs0_superblock.hash_table_size);
+						sha_update(hash_table_ctx,hash_table,ctx->header.fs_headers[i].pfs0_superblock.hash_table_size);
+						sha_get_hash(hash_table_ctx,master_hash);
+						memcpy(&ctx->header.fs_headers[i].pfs0_superblock.master_hash,master_hash,0x20);
+						free(master_hash);
+						free(hash_table);
+
+						// Calculate section hash
+						unsigned char *section_hash = (unsigned char*)malloc(0x20);
+						sha_ctx_t *section_ctx = new_sha_ctx(HASH_TYPE_SHA256,0);
+						sha_update(section_ctx,&ctx->header.fs_headers[i],0x200);
+						sha_get_hash(section_ctx,section_hash);
+						memcpy(&ctx->header.section_hashes[i],master_hash,0x20);
+						free(section_hash);
+
+						break;
+					}
+				}
+				free(pfs0_file_entry_table);
+			}
+		}
+	}
+}
+
+// Heavily modify header and rebuild cnmt
+void cnmt_nca_process(nca_ctx_t *ctx)
 {
 	// Set header and pfs0 superblock values for cnmt.nca
 	ctx->header.nca_size = 0x1000;
@@ -197,9 +365,9 @@ void meta_process(nca_ctx_t *ctx)
 	sha_get_hash(pfs0_sha_ctx,pfs0_hash_result);
 	memcpy(pfs0.hashtable.hash,pfs0_hash_result,32);
 
-	meta_save(ctx, &pfs0);
+	cnmt_nca_save(ctx, &pfs0);
 
-	// Calculate PFS0 superblock hash
+	// Calculate PFS0 superblock master hash
 	sha_ctx_t *pfs0_superblock_sha_ctx = new_sha_ctx(HASH_TYPE_SHA256,0);
 	unsigned char *pfs0_superblock_hash_result = (unsigned char*)calloc(1,33);
 	sha_update(pfs0_superblock_sha_ctx,pfs0_hash_result,32);
@@ -232,7 +400,7 @@ void meta_process(nca_ctx_t *ctx)
 
 }
 
-void meta_save(nca_ctx_t *ctx, pfs0_t *pfs0)
+void cnmt_nca_save(nca_ctx_t *ctx, pfs0_t *pfs0)
 {
 	// Decrypt key area to get keys and encrypt new pfs0
 	nca_decrypt_key_area(ctx);
@@ -244,7 +412,7 @@ void meta_save(nca_ctx_t *ctx, pfs0_t *pfs0)
 
 	fseeko64(ctx->file, 0xC00, SEEK_SET);
 	if (!fwrite(pfs0, sizeof(*pfs0) , 1, ctx->file)) {
-		fprintf(stderr,"Unable to write meta");
+		fprintf(stderr,"Unable to write cnmt");
 		exit(EXIT_FAILURE);
 	}
 }
@@ -252,6 +420,7 @@ void nca_process(nca_ctx_t *ctx, char *filepath) {
     /* Decrypt header */
     if (!nca_decrypt_header(ctx)) {
         fprintf(stderr, "Invalid NCA header! Are keys correct?\n");
+        exit(EXIT_FAILURE);
         return;
     }
 
@@ -265,13 +434,15 @@ void nca_process(nca_ctx_t *ctx, char *filepath) {
 
     // Set distribution type to "System"
     ctx->header.distribution = 0;
-    ctx->format_version = NCAVERSION_NCA3;
 
     // Set required values for creating .cnmt.xml
     int index = nca_type_to_index(ctx->header.content_type);
     cnmt_xml.contents[index].type = nca_get_content_type(ctx);
     cnmt_xml.contents[index].keygeneration = ctx->crypto_type;
-    if (index == 3) {
+    if (index == 0) {
+    	exefs_npdm_process(ctx);
+    }
+    else if (index == 3) {
     	char *tid = (char*)calloc(1,17);
     	//Convert tile id to hex
     	sprintf(tid, "%016" PRIx64, ctx->header.title_id);
@@ -282,7 +453,7 @@ void nca_process(nca_ctx_t *ctx, char *filepath) {
     	strip_ext(cnmt_xml.filepath);
     	strcat(cnmt_xml.filepath,".xml");
 
-    	meta_process(ctx);
+    	cnmt_nca_process(ctx);
     }
 
     /* Re-encrypt header */
@@ -399,7 +570,7 @@ int nca_decrypt_header(nca_ctx_t *ctx) {
         ctx->header = dec_header;
     } else {
     	fprintf(stderr, "Invalid NCA magic!\n");
-    	return 0;
+    	exit(EXIT_FAILURE);
     }
     free_aes_ctx(hdr_aes_ctx);
     return ctx->format_version != NCAVERSION_UNKNOWN;

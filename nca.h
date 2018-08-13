@@ -189,8 +189,13 @@ char *nca_get_content_type(nca_ctx_t *ctx);
 int nca_type_to_index(uint8_t nca_type);
 int nca_type_to_cnmt_type(uint8_t nca_type);
 void nca_decrypt_key_area(nca_ctx_t *ctx);
-void meta_process(nca_ctx_t *ctx);
-void meta_save(nca_ctx_t *ctx, pfs0_t *pfs0);
+void cnmt_nca_process(nca_ctx_t *ctx);
+void cnmt_nca_save(nca_ctx_t *ctx, pfs0_t *pfs0);
 void nca_update_ctr(unsigned char *ctr, uint64_t ofs);
+void exefs_npdm_process(nca_ctx_t *ctx);
+void nca_process_pfs0_section(nca_section_ctx_t *ctx);
+void nca_section_fseek(nca_section_ctx_t *ctx, uint64_t offset);
+size_t nca_section_fread(nca_section_ctx_t *ctx, void *buffer, size_t count);
+size_t nca_section_fwrite(nca_section_ctx_t *ctx, void *buffer, size_t count, uint64_t offset);
 
 #endif
