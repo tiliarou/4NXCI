@@ -24,7 +24,7 @@ filepath.o: filepath.c types.h
 
 hfs0.o: hfs0.h types.h
 
-main.o: main.c pki.h types.h
+main.o: main.c pki.h types.h version.h
 
 pki.o: pki.h aes.h types.h
 
@@ -48,11 +48,11 @@ clean_full:
 	cd mbedtls && $(MAKE) clean
 
 dist: clean_full
-	$(eval 4NXCIVER = $(shell grep '\b4NXCI_VERSION\b' version.h \
+	$(eval NXCIVER = $(shell grep '\bNXCI_VERSION\b' version.h \
 		| cut -d' ' -f3 \
 		| sed -e 's/"//g'))
-	mkdir 4nxci-$(4NXCIVER)
-	cp -R *.c *.h config.mk.template Makefile README.md LICENSE mbedtls 4nxci-$(4NXCIVER)
-	tar czf 4nxci-$(4NXCIVER).tar.gz 4nxci-$(4NXCIVER)
-	rm -r 4nxci-$(4NXCIVER)
+	mkdir 4nxci-$(NXCIVER)
+	cp -R *.c *.h config.mk.template Makefile README.md LICENSE mbedtls 4nxci-$(NXCIVER)
+	tar czf 4nxci-$(NXCIVER).tar.gz 4nxci-$(NXCIVER)
+	rm -r 4nxci-$(NXCIVER)
 

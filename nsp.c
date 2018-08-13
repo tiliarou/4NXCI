@@ -80,7 +80,7 @@ void create_dummy_tik(filepath_t filepath)
 	filepath_copy(&dummy_tik_path,&filepath);
 	// tik filename is: title id (16 bytes) + key generation (16 bytes) + .tik
 	filepath_append(&dummy_tik_path,"%s000000000000000%u.tik",cnmt_xml.tid,cnmt_xml.contents[3].keygeneration);
-	printf("Creating dummy tik %s\n",dummy_tik_path.char_path);
+	printf("Creating dummy tik %s\n\n",dummy_tik_path.char_path);
 	FILE *file;
 	if (!(file = fopen(dummy_tik_path.char_path, "wb"))) {
 		fprintf(stderr,"unable to create dummy tik\n");

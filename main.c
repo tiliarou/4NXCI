@@ -11,21 +11,21 @@
 #include "xci.h"
 #include "extkeys.h"
 #include "cnmt.h"
+#include "version.h"
 
 /* 4NXCI by The-4n
-   Based on hactool by ScriesM
+   Based on hactool by SciresM
    */
-
-static char *prog_name = "4nxci";
 cnmt_xml_t cnmt_xml;
 nsp_create_info_t nsp_create_info[7];
 application_cnmt_content_t application_cnmt_contents[3];
 
-/* Print usage. Taken largely from ctrtool. */
+// Print Usage
 static void usage(void) {
     fprintf(stderr, 
-    	"4NXCI by The-4n\n"
-        "Usage: %s <file>\n", prog_name);
+    	"4NXCI %s by The-4n\n"
+        "Usage: %s <filename.xci>\n"
+    	"Make sure to put your keyset in keys.dat\n", NXCI_VERSION, USAGE_PROGRAM_NAME);
     exit(EXIT_FAILURE);
 }
 
