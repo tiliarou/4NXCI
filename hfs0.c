@@ -46,18 +46,21 @@ void hfs0_process(hfs0_ctx_t *ctx) {
     hfs0_save(ctx);
 }
 
-int process_extracted_nca(filepath_t *filepath,nxci_ctx_t *tool)
+int hfs0_saved_nca_process(filepath_t *filepath, nxci_ctx_t *tool)
 {
-    nca_ctx_t nca_ctx;
-	 nca_init(&nca_ctx);
-	nca_ctx.tool_ctx = tool;
-	if (!(nca_ctx.file = os_fopen(filepath->os_path, OS_MODE_EDIT))) {
-	        fprintf(stderr, "unable to open %s: %s\n", filepath->os_path, strerror(errno));
-	        return 0;
-	    }
-
-    nca_process(&nca_ctx,filepath->char_path);
-    nca_free_section_contexts(&nca_ctx);
+    char *ext = filepath->char_path + (strlen(filepath->char_path) - 9);
+    if (!(strncmp(ext,".cnmt.nca",9))) {
+        nca_ctx_t nca_ctx;
+        nca_init(&nca_ctx);
+        nca_ctx.tool_ctx = tool;
+        if (!(nca_ctx.file = os_fopen(filepath->os_path, OS_MODE_EDIT)))
+        {
+                fprintf(stderr, "unable to open %s: %s\n", filepath->os_path, strerror(errno));
+                return 0;
+        }
+        nca_saved_meta_process(&nca_ctx,filepath);
+        nca_free_section_contexts(&nca_ctx);
+    }
     return 1;
 }
 
@@ -79,9 +82,9 @@ void hfs0_save_file(hfs0_ctx_t *ctx, uint32_t i, filepath_t *dirpath) {
     printf("Saving %s to %s\n", hfs0_get_file_name(ctx->header, i), filepath.char_path);
     uint64_t ofs = hfs0_get_header_size(ctx->header) + cur_file->offset;
     save_file_section(ctx->file, ctx->offset + ofs, cur_file->size, &filepath);
-    if (!process_extracted_nca(&filepath,ctx->tool_ctx))
+    if (!hfs0_saved_nca_process(&filepath,ctx->tool_ctx))
     {
-    	exit(EXIT_FAILURE);
+        exit(EXIT_FAILURE);
     }
 }
 

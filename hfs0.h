@@ -49,11 +49,10 @@ static inline char *hfs0_get_file_name(hfs0_header_t *hdr, uint32_t i) {
     return hfs0_get_string_table(hdr) + hfs0_get_file_entry(hdr, i)->string_table_offset;
 }
 
-int process_extracted_nca(filepath_t *filepath,nxci_ctx_t *tool);
+int hfs0_saved_nca_process(filepath_t *filepath, nxci_ctx_t *tool);
 
 void hfs0_process(hfs0_ctx_t *ctx);
 void hfs0_save(hfs0_ctx_t *ctx);
-
 void hfs0_save_file(hfs0_ctx_t *ctx, uint32_t i, filepath_t *dirpath);
 
 #endif

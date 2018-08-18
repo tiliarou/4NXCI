@@ -7,6 +7,6 @@
 	#define USAGE_PROGRAM_NAME "4nxci"
 #endif
 
-#define NXCI_VERSION "v0.9-alpha.5"
+#define NXCI_VERSION "v0.9-beta.1"
 
 #endif
