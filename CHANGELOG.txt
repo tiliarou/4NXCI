@@ -1,7 +1,7 @@
 v0.9-beta.1:
 Added support for all xcis
 Added dynamic nsp creation based on metadata
-Fixed a bug which cause program crash and bad nsps due to program nca hash calculation
+Fixed a bug which cause program crash and bad nsps due to program nca hash miscalculation
 Improved stability
 
 v0.9-apha.5:
