@@ -30,8 +30,7 @@ nsp_ctx_t addon_nsp;
 static void usage(void) {
     fprintf(stderr, 
         "4NXCI %s by The-4n\n"
-        "Usage: %s <filename.xci>\n"
-        "Make sure to put your keyset in keys.dat\n", NXCI_VERSION, USAGE_PROGRAM_NAME);
+        "Usage: %s <filename.xci>\n", NXCI_VERSION, USAGE_PROGRAM_NAME);
     exit(EXIT_FAILURE);
 }
 
@@ -67,7 +66,8 @@ int main(int argc, char **argv) {
     }
     else {
         fprintf(stderr,"unable to open keys.dat\n"
-                "make sure to put your keyset in keys.dat\n");
+                "make sure to put your keyset in keys.dat\n\n");
+        usage();
         return EXIT_FAILURE;
     }
     
