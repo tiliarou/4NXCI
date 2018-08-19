@@ -1,3 +1,6 @@
+v0.9-beta.2:
+Improved stability
+
 v0.9-beta.1:
 Added support for all xcis
 Added dynamic nsp creation based on metadata
