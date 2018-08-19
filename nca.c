@@ -206,9 +206,9 @@ void nca_exefs_npdm_process(nca_ctx_t *ctx)
                 // Read and decrypt PFS0 header
                 pfs0_start_offset = ctx->header.fs_headers[i].pfs0_superblock.pfs0_offset;
                 nca_section_fseek(&ctx->section_contexts[i], pfs0_start_offset);
-                nca_section_fread(&ctx->section_contexts[i], &pfs0_header, sizeof(pfs0_header));
+                nca_section_fread(&ctx->section_contexts[i], &pfs0_header, sizeof(pfs0_header_t));
                 // Read and decrypt file entry table
-                file_entry_table_offset = pfs0_start_offset + sizeof(pfs0_header);
+                file_entry_table_offset = pfs0_start_offset + sizeof(pfs0_header_t);
                 file_entry_table_size = sizeof(pfs0_file_entry_t) * pfs0_header.num_files;
                 pfs0_file_entry_t *pfs0_file_entry_table = (pfs0_file_entry_t *)malloc(file_entry_table_size);
                 nca_section_fseek(&ctx->section_contexts[i], file_entry_table_offset);
@@ -227,7 +227,7 @@ void nca_exefs_npdm_process(nca_ctx_t *ctx)
                         // Read and decrypt npdm header
                         meta_offset = file_raw_data_offset;
                         nca_section_fseek(&ctx->section_contexts[i], meta_offset);
-                        nca_section_fread(&ctx->section_contexts[i], &npdm_header, sizeof(npdm_header));
+                        nca_section_fread(&ctx->section_contexts[i], &npdm_header, sizeof(npdm_t));
 
                         // Mix some water with acid (Corrupt ACID sig)
                         acid_offset = meta_offset + npdm_header.acid_offset;
@@ -317,10 +317,10 @@ void nca_cnmt_process(nca_ctx_t *ctx, cnmt_ctx_t *cnmt_ctx)
     // Read and decrypt PFS0 header
     pfs0_start_offset = ctx->header.fs_headers[0].pfs0_superblock.pfs0_offset;
     nca_section_fseek(&ctx->section_contexts[0], pfs0_start_offset);
-    nca_section_fread(&ctx->section_contexts[0], &pfs0_header, sizeof(pfs0_header));
+    nca_section_fread(&ctx->section_contexts[0], &pfs0_header, sizeof(pfs0_header_t));
 
     // Write meta content records
-    file_entry_table_offset = pfs0_start_offset + sizeof(pfs0_header);
+    file_entry_table_offset = pfs0_start_offset + sizeof(pfs0_header_t);
     file_entry_table_size = sizeof(pfs0_file_entry_t) * pfs0_header.num_files;
     raw_data_offset = file_entry_table_offset + file_entry_table_size + pfs0_header.string_table_size;
     content_records_offset = raw_data_offset + sizeof(cnmt_header_t);
@@ -433,18 +433,19 @@ void nca_saved_meta_process(nca_ctx_t *ctx, filepath_t *filepath)
     pfs0_header_t pfs0_header;
     pfs0_offset = ctx->header.fs_headers[0].pfs0_superblock.pfs0_offset;
     nca_section_fseek(&ctx->section_contexts[0], pfs0_offset);
-    nca_section_fread(&ctx->section_contexts[0], &pfs0_header, sizeof(pfs0_header));
+    nca_section_fread(&ctx->section_contexts[0], &pfs0_header, sizeof(pfs0_header_t));
     
     // Read and decrypt cnmt header
-    pfs0_string_table_offset = pfs0_offset + sizeof(pfs0_header) + (pfs0_header.num_files * sizeof(pfs0_file_entry_t));
+    pfs0_string_table_offset = pfs0_offset + sizeof(pfs0_header_t) + (pfs0_header.num_files * sizeof(pfs0_file_entry_t));
     cnmt_start_offset = pfs0_string_table_offset + pfs0_header.string_table_size;
     nca_section_fseek(&ctx->section_contexts[0], cnmt_start_offset);
-    nca_section_fread(&ctx->section_contexts[0], &cnmt_header, sizeof(cnmt_header));
+    nca_section_fread(&ctx->section_contexts[0], &cnmt_header, sizeof(cnmt_header_t));
 
     // Read and decrypt content records
     uint64_t digest_offset = 0;
     digest_offset = pfs0_offset + ctx->header.fs_headers[0].pfs0_superblock.pfs0_size - 0x20;
-    content_records_start_offset = cnmt_start_offset + sizeof(cnmt_header) + cnmt_header.content_entry_offset - 0x10;
+    content_records_start_offset = cnmt_start_offset + sizeof(cnmt_header_t) + cnmt_header.content_entry_offset - 0x10;
+    
     switch (cnmt_header.type)
     {
     case 0x80: // Application
@@ -457,7 +458,7 @@ void nca_saved_meta_process(nca_ctx_t *ctx, filepath_t *filepath)
         nca_meta_context_process(&addon_cnmt, ctx, &cnmt_header, digest_offset, content_records_start_offset, filepath);
         break;
     default:
-        fprintf(stderr, "Unknown meta type\n");
+        fprintf(stderr, "Unknown meta type: %x\n", (unsigned char)cnmt_header.type);
         exit(EXIT_FAILURE);
     }
 }

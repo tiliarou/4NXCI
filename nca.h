@@ -15,20 +15,20 @@
 #define MAGIC_NCA3 0x3341434E /* "NCA3" */
 #define MAGIC_NCA0 0x3041434E /* "NCA0" */
 
-typedef struct {
+typedef struct __attribute__((__packed__)) {
     uint32_t media_start_offset;
     uint32_t media_end_offset;
     uint8_t _0x8[0x8]; /* Padding. */
 } nca_section_entry_t;
 
-typedef struct {
+typedef struct __attribute__((__packed__)) {
     ivfc_hdr_t ivfc_header;
     uint8_t _0xE0[0x18];
     bktr_header_t relocation_header;
     bktr_header_t subsection_header;
 } bktr_superblock_t;
 
-typedef struct {
+typedef struct __attribute__((__packed__)) {
     bktr_superblock_t *superblock;
     FILE *file;
     validity_t superblock_hash_validity;
@@ -63,6 +63,7 @@ typedef enum {
 } section_crypt_type_t;
 
 /* NCA FS header. */
+#pragma pack(push, 1)
 typedef struct {
     uint8_t _0x0;
     uint8_t _0x1;
@@ -85,8 +86,10 @@ typedef struct {
     };
     uint8_t _0x148[0xB8]; /* Padding. */
 } nca_fs_header_t;
+#pragma pack(pop)
 
 /* Nintendo content archive header. */
+#pragma pack(push, 1)
 typedef struct {
     uint8_t fixed_key_sig[0x100]; /* RSA-PSS signature over header with fixed key. */
     uint8_t npdm_key_sig[0x100]; /* RSA-PSS signature over header with key in NPDM. */
@@ -116,6 +119,7 @@ typedef struct {
     uint8_t _0x340[0xC0]; /* Padding. */
     nca_fs_header_t fs_headers[4]; /* FS section headers. */
 } nca_header_t;
+#pragma pack(pop)
 
 enum nca_section_type {
     PFS0,

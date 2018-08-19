@@ -43,7 +43,7 @@ void nsp_create(nsp_ctx_t *nsp_ctx, uint8_t entry_count)
     }
 
     // Write header
-    if (!fwrite(&nsp_header, sizeof(nsp_header), 1, nsp_file))
+    if (!fwrite(&nsp_header, sizeof(pfs0_header_t), 1, nsp_file))
     {
         fprintf(stderr, "Unable to write nsp header");
         exit(EXIT_FAILURE);

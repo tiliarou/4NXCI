@@ -26,6 +26,7 @@ typedef struct {
     cnmt_xml_content_t *contents;
 } cnmt_xml_ctx_t;
 
+#pragma pack(push, 1)
 typedef struct {
     uint64_t title_id;
     uint32_t title_version;
@@ -38,7 +39,9 @@ typedef struct {
     uint64_t patch_id;
     uint64_t min_version;
 } cnmt_header_t;
+#pragma pack(pop)
 
+#pragma pack(push, 1)
 typedef struct {
     unsigned char hash[0x20];
     uint8_t ncaid[0x10];
@@ -46,6 +49,7 @@ typedef struct {
     uint8_t type;
     uint8_t _0x37;
 } cnmt_content_record_t;
+#pragma pack(pop)
 
 typedef struct {
     uint64_t title_id;

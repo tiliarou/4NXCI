@@ -74,6 +74,7 @@ typedef struct {
     uint64_t mask;
 } fs_perm_t;
 
+#pragma pack(push, 1)
 typedef struct {
     uint32_t magic;
     uint8_t _0x4[0xC];
@@ -87,7 +88,9 @@ typedef struct {
     uint32_t kac_size;
     uint64_t padding;
 } npdm_aci0_t;
+#pragma pack(pop)
 
+#pragma pack(push, 1)
 typedef struct {
     uint8_t signature[0x100];
     uint8_t modulus[0x100];
@@ -105,7 +108,9 @@ typedef struct {
     uint32_t kac_size;
     uint64_t padding;
 } npdm_acid_t;
+#pragma pack(pop)
 
+#pragma pack(push, 1)
 typedef struct {
     uint32_t magic;
     uint32_t _0x4;
@@ -123,5 +128,6 @@ typedef struct {
     uint32_t acid_offset;
     uint32_t acid_size;
 } npdm_t;
+#pragma pack(pop)
 
 #endif

@@ -53,7 +53,7 @@ int hfs0_saved_nca_process(filepath_t *filepath, nxci_ctx_t *tool)
         nca_ctx_t nca_ctx;
         nca_init(&nca_ctx);
         nca_ctx.tool_ctx = tool;
-        if (!(nca_ctx.file = os_fopen(filepath->os_path, OS_MODE_EDIT)))
+        if (!(nca_ctx.file = os_fopen(filepath->os_path, OS_MODE_READ)))
         {
                 fprintf(stderr, "unable to open %s: %s\n", filepath->os_path, strerror(errno));
                 return 0;
