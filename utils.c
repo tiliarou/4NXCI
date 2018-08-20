@@ -219,20 +219,6 @@ FILE *open_key_file(const char *prefix) {
     return keyfile;
 }
 
-// Code by David Bowling https://stackoverflow.com/users/6879826/david-bowling
-void strip_ext(char *fname)
-{
-    char *end = fname + strlen(fname);
-
-    while (end > fname && *end != '.' && *end != '\\' && *end != '/') {
-        --end;
-    }
-
-    if (end > fname && *end == '.') {
-        *end = '\0';
-    }
-}
-
 // Code by NullModel https://github.com/ENCODE-DCC/kentUtils/commits?author=NullModel
 char hexTab[16] = {'0', '1', '2', '3', '4', '5', '6', '7',
 '8', '9', 'a', 'b', 'c', 'd', 'e', 'f', };
