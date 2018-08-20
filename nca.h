@@ -1,8 +1,7 @@
 #ifndef NXCI_NCA_H
 #define NXCI_NCA_H
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 #include "types.h"
 #include "settings.h"
 #include "aes.h"
@@ -11,24 +10,25 @@
 #include "bktr.h"
 #include "nca0_romfs.h"
 #include "cnmt.h"
+#include "nsp.h"
 
 #define MAGIC_NCA3 0x3341434E /* "NCA3" */
 #define MAGIC_NCA0 0x3041434E /* "NCA0" */
 
-typedef struct {
+typedef struct __attribute__((__packed__)) {
     uint32_t media_start_offset;
     uint32_t media_end_offset;
     uint8_t _0x8[0x8]; /* Padding. */
 } nca_section_entry_t;
 
-typedef struct {
+typedef struct __attribute__((__packed__)) {
     ivfc_hdr_t ivfc_header;
     uint8_t _0xE0[0x18];
     bktr_header_t relocation_header;
     bktr_header_t subsection_header;
 } bktr_superblock_t;
 
-typedef struct {
+typedef struct __attribute__((__packed__)) {
     bktr_superblock_t *superblock;
     FILE *file;
     validity_t superblock_hash_validity;
@@ -63,6 +63,7 @@ typedef enum {
 } section_crypt_type_t;
 
 /* NCA FS header. */
+#pragma pack(push, 1)
 typedef struct {
     uint8_t _0x0;
     uint8_t _0x1;
@@ -85,8 +86,10 @@ typedef struct {
     };
     uint8_t _0x148[0xB8]; /* Padding. */
 } nca_fs_header_t;
+#pragma pack(pop)
 
 /* Nintendo content archive header. */
+#pragma pack(push, 1)
 typedef struct {
     uint8_t fixed_key_sig[0x100]; /* RSA-PSS signature over header with fixed key. */
     uint8_t npdm_key_sig[0x100]; /* RSA-PSS signature over header with key in NPDM. */
@@ -116,6 +119,7 @@ typedef struct {
     uint8_t _0x340[0xC0]; /* Padding. */
     nca_fs_header_t fs_headers[4]; /* FS section headers. */
 } nca_header_t;
+#pragma pack(pop)
 
 enum nca_section_type {
     PFS0,
@@ -181,18 +185,17 @@ typedef struct nca_ctx {
 } nca_ctx_t;
 
 void nca_init(nca_ctx_t *ctx);
-void nca_process(nca_ctx_t *ctx, char *filepath);
+void nca_saved_meta_process(nca_ctx_t *ctx, filepath_t *filepath);
+void nca_meta_context_process (cnmt_ctx_t *cnmt_ctx, nca_ctx_t *ctx, cnmt_header_t *cnmt, uint64_t digest_offset, uint64_t content_records_start_offset, filepath_t *filepath);
+void nca_gamecard_process(nca_ctx_t *ctx, filepath_t *filepath, int index, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_ctx_t *cnmt_ctx, nsp_ctx_t *nsp_ctx);
+void nca_download_process(nca_ctx_t *ctx, filepath_t *filepath, int index, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_ctx_t *cnmt_ctx, nsp_ctx_t *nsp_ctx);
 int nca_decrypt_header(nca_ctx_t *ctx);
 void nca_encrypt_header(nca_ctx_t *ctx);
 void nca_free_section_contexts(nca_ctx_t *ctx);
-char *nca_get_content_type(nca_ctx_t *ctx);
-int nca_type_to_index(uint8_t nca_type);
-int nca_type_to_cnmt_type(uint8_t nca_type);
 void nca_decrypt_key_area(nca_ctx_t *ctx);
-void cnmt_nca_process(nca_ctx_t *ctx, char *filepath);
-void cnmt_nca_save(nca_ctx_t *ctx, pfs0_t *pfs0, char *filepath);
+void nca_cnmt_process(nca_ctx_t *ctx, cnmt_ctx_t *cnmt_ctx);
 void nca_update_ctr(unsigned char *ctr, uint64_t ofs);
-void exefs_npdm_process(nca_ctx_t *ctx);
+void nca_exefs_npdm_process(nca_ctx_t *ctx);
 void nca_process_pfs0_section(nca_section_ctx_t *ctx);
 void nca_section_fseek(nca_section_ctx_t *ctx, uint64_t offset);
 size_t nca_section_fread(nca_section_ctx_t *ctx, void *buffer, size_t count);

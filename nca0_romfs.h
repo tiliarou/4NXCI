@@ -9,6 +9,7 @@
 /* RomFS structs. */
 #define NCA0_ROMFS_HEADER_SIZE 0x00000028
 
+#pragma pack(push, 1)
 typedef struct {
     uint32_t header_size;
     uint32_t dir_hash_table_offset;
@@ -21,7 +22,9 @@ typedef struct {
     uint32_t file_meta_table_size;
     uint32_t data_offset;
 } nca0_romfs_hdr_t;
+#pragma pack(pop)
 
+#pragma pack(push, 1)
 typedef struct {
     uint8_t master_hash[0x20]; /* SHA-256 hash of the hash table. */
     uint32_t block_size; /* In bytes. */
@@ -32,6 +35,7 @@ typedef struct {
     uint64_t romfs_size;
     uint8_t _0x48[0xF0];
 } nca0_romfs_superblock_t;
+#pragma pack(pop)
 
 typedef struct {
     nca0_romfs_superblock_t *superblock;
