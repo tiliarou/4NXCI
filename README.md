@@ -9,12 +9,12 @@ Thanks: SciresM, Rajkosto
 
 ## Usage
 You need to place your keyset file with "keys.dat" filename in the same folder as 4NXCI  
-Created NSP files are located in the same folder as 4NXCI with <titleid.nsp> filename  
+Created NSP files are located in the same folder as 4NXCI with 'titleid.nsp' filename  
 4NXCI creates "4nxci_extracted_xci" folder as a temp folder, you can remove it after the conversion is done
 
 ```
-Windows: .\4nxci.exe <path_to_file.xci>
-*nix: ./4nxci <path_to_file.xci>
+*nix: ./4nxci <path_to_file.xci>  
+Windows: .\4nxci.exe <path_to_file.xci>  
 ```
 
 ## Licensing
