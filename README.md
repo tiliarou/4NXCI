@@ -3,12 +3,19 @@
 ![License](https://img.shields.io/badge/license-ISC-blue.svg)
 
 4NXCI is a tool for converting XCI(NX Card Image) files to NSP  
-It's in early stages and there are lots to be done  
-You need to place your keyset file with "keys.dat" filename in the same folder as program  
 
-4NXCI is based on hactool by SciresM [hactool](https://github.com/SciresM/hactool)
-  
+4NXCI is based on hactool by SciresM [hactool](https://github.com/SciresM/hactool)  
 Thanks: SciresM, Rajkosto
+
+## Usage
+You need to place your keyset file with "keys.dat" filename in the same folder as 4NXCI  
+Created NSP files are located in the same folder as 4NXCI with <titleid.nsp> filename  
+4NXCI creates "4nxci_extracted_xci" folder as a temp folder, you can remove it after the conversion is done
+
+```
+Windows: .\4nxci.exe <path_to_file.xci>
+*nix: ./4nxci <path_to_file.xci>
+```
 
 ## Licensing
 
