@@ -27,19 +27,21 @@ nsp_ctx_t patch_nsp;
 nsp_ctx_t addon_nsp;
 
 // Print Usage
-static void usage(void) {
-    fprintf(stderr, 
-        "4NXCI %s by The-4n\n"
-        "Usage: %s <filename.xci>\n", NXCI_VERSION, USAGE_PROGRAM_NAME);
+static void usage(void)
+{
+    fprintf(stderr, "Usage: %s <file.xci>\n", USAGE_PROGRAM_NAME);
     exit(EXIT_FAILURE);
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv)
+{
     //Compiler nag
     (void)argc;
 
     nxci_ctx_t tool_ctx;
     char input_name[0x200];
+
+    printf("4NXCI %s by The-4n\n", NXCI_VERSION);
 
     memset(&tool_ctx, 0, sizeof(tool_ctx));
     memset(input_name, 0, sizeof(input_name));
@@ -50,38 +52,44 @@ int main(int argc, char **argv) {
     memset(&patch_cnmt_xml, 0, sizeof(cnmt_xml_ctx_t));
     memset(&addon_cnmt_xml, 0, sizeof(cnmt_xml_ctx_t));
 
-    filepath_t keypath;;
+    filepath_t keypath;
+    
     filepath_init(&keypath);
     pki_initialize_keyset(&tool_ctx.settings.keyset, KEYSET_RETAIL);
     // Hardcode keyfile path
     filepath_set(&keypath, "keys.dat");
+    
     // Try to populate default keyfile.
     FILE *keyfile = NULL;
     keyfile = os_fopen(keypath.os_path, OS_MODE_READ);
 
-    if (keyfile != NULL) {
+    if (keyfile != NULL)
+    {
         extkeys_initialize_keyset(&tool_ctx.settings.keyset, keyfile);
         pki_derive_keys(&tool_ctx.settings.keyset);
         fclose(keyfile);
     }
-    else {
-        fprintf(stderr,"unable to open keys.dat\n"
-                "make sure to put your keyset in keys.dat\n\n");
-        usage();
+    else
+    {
+        fprintf(stderr, "unable to open keys.dat\n"
+                        "make sure to put your keyset in keys.dat\n");
         return EXIT_FAILURE;
     }
-    
-    if (argv[1] != NULL) {
+
+    if (argv[1] != NULL)
+    {
         // Copy input file.
         strncpy(input_name, argv[1], sizeof(input_name));
-    } else
+    }
+    else
         usage();
-    
-    if (!(tool_ctx.file = fopen(input_name, "rb"))) {
+
+    if (!(tool_ctx.file = fopen(input_name, "rb")))
+    {
         fprintf(stderr, "unable to open %s: %s\n", input_name, strerror(errno));
         return EXIT_FAILURE;
     }
-    
+
     xci_ctx_t xci_ctx;
     memset(&xci_ctx, 0, sizeof(xci_ctx));
     xci_ctx.file = tool_ctx.file;
@@ -90,25 +98,27 @@ int main(int argc, char **argv) {
     // Hardcode secure partition save path to "4nxci_extracted_nsp" directory
     filepath_set(&xci_ctx.tool_ctx->settings.secure_dir_path, "4nxci_extracted_xci");
 
+    printf("\n");
+
     xci_process(&xci_ctx);
 
     // Process ncas in cnmts
     printf("===> Processing Application Metadata:\n");
-    application_nsp.nsp_entry = (nsp_entry_t*)malloc(application_cnmt.nca_count + 4);
-    memset(&application_nsp,0,sizeof(application_nsp));
+    application_nsp.nsp_entry = (nsp_entry_t *)malloc(application_cnmt.nca_count + 4);
+    memset(&application_nsp, 0, sizeof(application_nsp));
     cnmt_gamecard_process(xci_ctx.tool_ctx, &application_cnmt_xml, &application_cnmt, &application_nsp);
     if (patch_cnmt.title_id != 0)
     {
         printf("===> Processing Patch Metadata:\n");
-        patch_nsp.nsp_entry = (nsp_entry_t*)malloc(patch_cnmt.nca_count + 4);
-        memset(&patch_nsp,0,sizeof(patch_nsp));
+        patch_nsp.nsp_entry = (nsp_entry_t *)malloc(patch_cnmt.nca_count + 4);
+        memset(&patch_nsp, 0, sizeof(patch_nsp));
         cnmt_download_process(xci_ctx.tool_ctx, &patch_cnmt_xml, &patch_cnmt, &patch_nsp);
     }
     if (addon_cnmt.title_id != 0)
     {
         printf("===> Processing AddOn Metadata:\n");
-        addon_nsp.nsp_entry = (nsp_entry_t*)malloc(addon_cnmt.nca_count + 4);
-        memset(&addon_nsp,0,sizeof(addon_nsp));
+        addon_nsp.nsp_entry = (nsp_entry_t *)malloc(addon_cnmt.nca_count + 4);
+        memset(&addon_nsp, 0, sizeof(addon_nsp));
         cnmt_gamecard_process(xci_ctx.tool_ctx, &addon_cnmt_xml, &addon_cnmt, &addon_nsp);
     }
 

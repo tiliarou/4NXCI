@@ -399,7 +399,6 @@ void nca_saved_meta_process(nca_ctx_t *ctx, filepath_t *filepath)
     {
         fprintf(stderr, "Invalid NCA header! Are keys correct?\n");
         exit(EXIT_FAILURE);
-        return;
     }
 
     /* Sort out crypto type. */
@@ -458,7 +457,7 @@ void nca_saved_meta_process(nca_ctx_t *ctx, filepath_t *filepath)
         nca_meta_context_process(&addon_cnmt, ctx, &cnmt_header, digest_offset, content_records_start_offset, filepath);
         break;
     default:
-        fprintf(stderr, "Unknown meta type: %x\n", (unsigned char)cnmt_header.type);
+        fprintf(stderr, "Unknown meta type! Are keys correct?\n");
         exit(EXIT_FAILURE);
     }
 }
@@ -470,7 +469,6 @@ void nca_gamecard_process(nca_ctx_t *ctx, filepath_t *filepath, int index, cnmt_
     {
         fprintf(stderr, "Invalid NCA header! Are keys correct?\n");
         exit(EXIT_FAILURE);
-        return;
     }
 
     uint8_t content_type = ctx->header.content_type;
@@ -497,13 +495,9 @@ void nca_gamecard_process(nca_ctx_t *ctx, filepath_t *filepath, int index, cnmt_
 
     // Patch ACID sig if nca type = program
     if (content_type == 0) // Program nca
-    {
         nca_exefs_npdm_process(ctx);
-    }
     else if (content_type == 1) // Meta nca
-    {
         nca_cnmt_process(ctx, cnmt_ctx);
-    }
 
     // Set distrbution type to "System"
     ctx->header.distribution = 0;
@@ -515,7 +509,7 @@ void nca_gamecard_process(nca_ctx_t *ctx, filepath_t *filepath, int index, cnmt_
 
     // Calculate SHA-256 hash
     sha_ctx_t *sha_ctx = new_sha_ctx(HASH_TYPE_SHA256, 0);
-    uint64_t read_size = 0x4000000; // 4 MB buffer.
+    uint64_t read_size = 0x61A8000; // 100 MB buffer.
     unsigned char *buf = malloc(read_size);
     if (buf == NULL)
     {
@@ -594,7 +588,6 @@ void nca_download_process(nca_ctx_t *ctx, filepath_t *filepath, int index, cnmt_
     {
         fprintf(stderr, "Invalid NCA header! Are keys correct?\n");
         exit(EXIT_FAILURE);
-        return;
     }
 
     uint8_t content_type = ctx->header.content_type;

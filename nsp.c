@@ -72,7 +72,7 @@ void nsp_create(nsp_ctx_t *nsp_ctx, uint8_t entry_count)
             fprintf(stderr, "unable to open %s: %s\n", nsp_ctx->nsp_entry[i2].filepath.char_path, strerror(errno));
             exit(EXIT_FAILURE);
         }
-        uint64_t read_size = 0x4000000; // 4 MB buffer.
+        uint64_t read_size = 0x61A8000; // 100 MB buffer.
         unsigned char *buf = malloc(read_size);
         if (buf == NULL)
         {

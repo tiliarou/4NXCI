@@ -1,12 +1,12 @@
 #ifndef NXCI_VERSION_H
 #define NXCI_VERSION_H
 
-#ifdef __MINGW32__
+#if defined(_WIN32) || defined(_WIN64)
 	#define USAGE_PROGRAM_NAME "4nxci.exe"
 #else
 	#define USAGE_PROGRAM_NAME "4nxci"
 #endif
 
-#define NXCI_VERSION "v0.9-beta.2"
+#define NXCI_VERSION "v1.00"
 
 #endif

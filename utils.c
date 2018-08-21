@@ -87,7 +87,7 @@ void save_file_section(FILE *f_in, uint64_t ofs, uint64_t total_size, filepath_t
         return;
     }
 
-    uint64_t read_size = 0x400000; /* 4 MB buffer. */
+    uint64_t read_size = 0x61A8000; /* 100 MB buffer. */
     unsigned char *buf = malloc(read_size);
     if (buf == NULL) {
         fprintf(stderr, "Failed to allocate file-save buffer!\n");
@@ -110,7 +110,6 @@ void save_file_section(FILE *f_in, uint64_t ofs, uint64_t total_size, filepath_t
 
     free(buf);
 }
-
 
 validity_t check_memory_hash_table(FILE *f_in, unsigned char *hash_table, uint64_t data_ofs, uint64_t data_len, uint64_t block_size, int full_block) {
     if (block_size == 0) {
