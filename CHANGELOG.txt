@@ -1,3 +1,9 @@
+v1.10:
+Added cert and tik packing for download type cnmts
+Fixed a bug cause random meta id and hash values in xml metadata
+Fixed a bug cause random metadata nca filename in created nsp
+Changed dummy tik titleid
+
 v1.00:
 Increased conversion speed (buffer size is now 100MB)
 Modified most parts of dummy cert
