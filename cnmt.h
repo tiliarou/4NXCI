@@ -56,6 +56,7 @@ typedef struct {
     uint64_t patch_id;
     uint8_t type;
     uint8_t nca_count;
+    uint8_t has_rightsid;
     uint32_t title_version;
     unsigned char digest[0x20];
     unsigned char keygen_min;

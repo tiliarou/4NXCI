@@ -51,6 +51,9 @@ int main(int argc, char **argv)
     memset(&application_cnmt_xml, 0, sizeof(cnmt_xml_ctx_t));
     memset(&patch_cnmt_xml, 0, sizeof(cnmt_xml_ctx_t));
     memset(&addon_cnmt_xml, 0, sizeof(cnmt_xml_ctx_t));
+    memset(&application_nsp, 0, sizeof(nsp_ctx_t));
+    memset(&patch_nsp, 0, sizeof(nsp_ctx_t));
+    memset(&addon_nsp, 0, sizeof(nsp_ctx_t));
 
     filepath_t keypath;
     
