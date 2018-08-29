@@ -5,10 +5,17 @@
 4NXCI is a tool for converting XCI(NX Card Image) files to NSP  
 
 4NXCI is based on hactool by SciresM [hactool](https://github.com/SciresM/hactool)  
-Thanks: SciresM, Rajkosto
+Thanks: SciresM, Rajkosto, Switch Brew
 
 ## Usage
 You need to place your keyset file with "keys.dat" filename in the same folder as 4NXCI  
+Required keys are:  
+
+```
+header_key  
+key_area_key_application_xx  
+```
+
 Created NSP files are located in the same folder as 4NXCI with 'titleid.nsp' filename  
 4NXCI creates "4nxci_extracted_xci" folder as a temp folder, you can remove it after the conversion is done
 
