@@ -376,7 +376,12 @@ void nca_meta_context_process(cnmt_ctx_t *cnmt_ctx, nca_ctx_t *ctx, cnmt_header_
     if (ctx->has_rights_id)
         cnmt_ctx->keygen_min = (unsigned char)ctx->header.rights_id[15];
     else
-        cnmt_ctx->keygen_min = ctx->crypto_type;
+    {
+        if (ctx->header.crypto_type2 > ctx->header.crypto_type)
+            cnmt_ctx->keygen_min = ctx->header.crypto_type2;
+        else
+            cnmt_ctx->keygen_min = ctx->header.crypto_type;
+    }
 
     // Read content and decrypt records
     cnmt_ctx->cnmt_content_records = (cnmt_content_record_t *)malloc(cnmt_ctx->nca_count * sizeof(cnmt_content_record_t));
@@ -496,7 +501,10 @@ void nca_gamecard_process(nca_ctx_t *ctx, filepath_t *filepath, int index, cnmt_
 
     // Set required values for creating .cnmt.xml
     cnmt_xml_ctx->contents[index].size = ctx->header.nca_size;
-    cnmt_xml_ctx->contents[index].keygeneration = ctx->crypto_type;
+    if (ctx->header.crypto_type2 > ctx->header.crypto_type)
+        cnmt_xml_ctx->contents[index].keygeneration = ctx->header.crypto_type2;
+    else
+        cnmt_xml_ctx->contents[index].keygeneration = ctx->header.crypto_type;
     if (content_type != 1) // Meta nca lacks of content records
         cnmt_xml_ctx->contents[index].type = cnmt_get_content_type(cnmt_ctx->cnmt_content_records[index].type);
     else
@@ -677,7 +685,12 @@ void nca_download_process(nca_ctx_t *ctx, filepath_t *filepath, int index, cnmt_
         }
     }
     else
-        cnmt_xml_ctx->contents[index].keygeneration = ctx->crypto_type;
+    {
+        if (ctx->header.crypto_type2 > ctx->header.crypto_type)
+            cnmt_xml_ctx->contents[index].keygeneration = ctx->header.crypto_type2;
+        else
+            cnmt_xml_ctx->contents[index].keygeneration = ctx->header.crypto_type;
+    }
 
     char *hash_hex = (char *)calloc(1, 65);
     if (content_type != 1) // Meta nca lacks of content records
@@ -693,7 +706,7 @@ void nca_download_process(nca_ctx_t *ctx, filepath_t *filepath, int index, cnmt_
 
         // Calculate Meta hash
         sha_ctx_t *sha_ctx = new_sha_ctx(HASH_TYPE_SHA256, 0);
-        fseeko64(ctx->file, 0 , SEEK_SET);
+        fseeko64(ctx->file, 0, SEEK_SET);
         unsigned char *buff = (unsigned char *)malloc(ctx->header.nca_size);
         unsigned char *meta_hash = (unsigned char *)malloc(0x20);
         if (fread(buff, 1, ctx->header.nca_size, ctx->file) != ctx->header.nca_size)
