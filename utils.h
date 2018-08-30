@@ -7,7 +7,7 @@
 
 struct filepath;
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(_WIN64)
 #define PATH_SEPERATOR '\\'
 #else
 #define PATH_SEPERATOR '/'

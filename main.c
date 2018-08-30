@@ -18,13 +18,12 @@
    */
 cnmt_xml_ctx_t application_cnmt_xml;
 cnmt_xml_ctx_t patch_cnmt_xml;
-cnmt_xml_ctx_t addon_cnmt_xml;
 cnmt_ctx_t application_cnmt;
 cnmt_ctx_t patch_cnmt;
-cnmt_ctx_t addon_cnmt;
 nsp_ctx_t application_nsp;
 nsp_ctx_t patch_nsp;
-nsp_ctx_t addon_nsp;
+nsp_ctx_t *addon_nsps;
+cnmt_addons_ctx_t addons_cnmt_ctx;
 
 // Print Usage
 static void usage(void)
@@ -47,21 +46,20 @@ int main(int argc, char **argv)
     memset(input_name, 0, sizeof(input_name));
     memset(&application_cnmt, 0, sizeof(cnmt_ctx_t));
     memset(&patch_cnmt, 0, sizeof(cnmt_ctx_t));
-    memset(&addon_cnmt, 0, sizeof(cnmt_ctx_t));
     memset(&application_cnmt_xml, 0, sizeof(cnmt_xml_ctx_t));
     memset(&patch_cnmt_xml, 0, sizeof(cnmt_xml_ctx_t));
-    memset(&addon_cnmt_xml, 0, sizeof(cnmt_xml_ctx_t));
     memset(&application_nsp, 0, sizeof(nsp_ctx_t));
     memset(&patch_nsp, 0, sizeof(nsp_ctx_t));
-    memset(&addon_nsp, 0, sizeof(nsp_ctx_t));
+    memset(&addons_cnmt_ctx, 0, sizeof(cnmt_addons_ctx_t));
+    memset(&addon_nsps, 0, sizeof(addon_nsps));
 
     filepath_t keypath;
-    
+
     filepath_init(&keypath);
     pki_initialize_keyset(&tool_ctx.settings.keyset, KEYSET_RETAIL);
     // Hardcode keyfile path
     filepath_set(&keypath, "keys.dat");
-    
+
     // Try to populate default keyfile.
     FILE *keyfile = NULL;
     keyfile = os_fopen(keypath.os_path, OS_MODE_READ);
@@ -117,20 +115,29 @@ int main(int argc, char **argv)
         memset(&patch_nsp, 0, sizeof(patch_nsp));
         cnmt_download_process(xci_ctx.tool_ctx, &patch_cnmt_xml, &patch_cnmt, &patch_nsp);
     }
-    if (addon_cnmt.title_id != 0)
+    if (addons_cnmt_ctx.count != 0)
     {
-        printf("===> Processing AddOn Metadata:\n");
-        addon_nsp.nsp_entry = (nsp_entry_t *)malloc(addon_cnmt.nca_count + 4);
-        memset(&addon_nsp, 0, sizeof(addon_nsp));
-        cnmt_gamecard_process(xci_ctx.tool_ctx, &addon_cnmt_xml, &addon_cnmt, &addon_nsp);
+        addon_nsps = (nsp_ctx_t *)calloc(1, sizeof(nsp_ctx_t) * addons_cnmt_ctx.count);
+        printf("===> Processing %u Addon(s):\n", addons_cnmt_ctx.count);
+        for (int i = 0; i < addons_cnmt_ctx.count; i++)
+        {
+            printf("===> Processing AddOn %i Metadata:\n", i + 1);
+            addon_nsps[i].nsp_entry = (nsp_entry_t *)malloc(addons_cnmt_ctx.addon_cnmt[i].nca_count + 4);
+            memset(&addon_nsps[i].nsp_entry, 0, sizeof(nsp_entry_t));
+            cnmt_gamecard_process(xci_ctx.tool_ctx, &addons_cnmt_ctx.addon_cnmt_xml[i], &addons_cnmt_ctx.addon_cnmt[i], &addon_nsps[i]);
+        }
     }
 
     printf("\nSummary:\n");
     printf("Game NSP: %s\n", application_nsp.filepath.char_path);
     if (patch_cnmt.title_id != 0)
         printf("Update NSP: %s\n", patch_nsp.filepath.char_path);
-    if (addon_cnmt.title_id != 0)
-        printf("DLC NSP: %s\n", addon_nsp.filepath.char_path);
+    if (addons_cnmt_ctx.count != 0)
+    {
+        for (int i2=0; i2< addons_cnmt_ctx.count; i2++)
+            printf("DLC NSP %i: %s\n", i2 + 1, addon_nsps[i2].filepath.char_path);
+    }
+
     fclose(tool_ctx.file);
     printf("\nDone!\n");
     return EXIT_SUCCESS;

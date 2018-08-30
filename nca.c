@@ -472,7 +472,21 @@ void nca_saved_meta_process(nca_ctx_t *ctx, filepath_t *filepath)
         nca_meta_context_process(&patch_cnmt, ctx, &cnmt_header, digest_offset, content_records_start_offset, filepath);
         break;
     case 0x82: // AddOn
-        nca_meta_context_process(&addon_cnmt, ctx, &cnmt_header, digest_offset, content_records_start_offset, filepath);
+        // Gamecard may contain more than one Addon Meta
+        if (addons_cnmt_ctx.count == 0)
+        {
+            addons_cnmt_ctx.addon_cnmt = (cnmt_ctx_t*)calloc(1, sizeof(cnmt_ctx_t));
+            addons_cnmt_ctx.addon_cnmt_xml = (cnmt_xml_ctx_t*)calloc(1, sizeof(cnmt_xml_ctx_t));
+        }
+        else
+        {
+            addons_cnmt_ctx.addon_cnmt = (cnmt_ctx_t*)realloc(addons_cnmt_ctx.addon_cnmt, (addons_cnmt_ctx.count + 1) * sizeof(cnmt_ctx_t));
+            addons_cnmt_ctx.addon_cnmt_xml = (cnmt_xml_ctx_t*)realloc(addons_cnmt_ctx.addon_cnmt_xml, (addons_cnmt_ctx.count + 1) * sizeof(cnmt_xml_ctx_t));
+            memset(&addons_cnmt_ctx.addon_cnmt[addons_cnmt_ctx.count], 0, sizeof(cnmt_ctx_t));
+            memset(&addons_cnmt_ctx.addon_cnmt_xml[addons_cnmt_ctx.count], 0, sizeof(cnmt_xml_ctx_t));
+        }
+        nca_meta_context_process(&addons_cnmt_ctx.addon_cnmt[addons_cnmt_ctx.count], ctx, &cnmt_header, digest_offset, content_records_start_offset, filepath);
+        addons_cnmt_ctx.count++;
         break;
     default:
         fprintf(stderr, "Unknown meta type! Are keys correct?\n");
