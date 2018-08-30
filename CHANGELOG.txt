@@ -1,5 +1,5 @@
 v1.20:
-Added support for gamecards with multiple dlcs
+Added support for gamecards with more than one dlc
 Fixed a bug cause wrong keygeneration value in xml metadata
 
 v1.10:
