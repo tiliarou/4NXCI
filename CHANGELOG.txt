@@ -1,3 +1,7 @@
+v1.20:
+Added support for gamecards with multiple dlcs
+Fixed a bug cause wrong keygeneration value in xml metadata
+
 v1.10:
 Added cert and tik packing for download type cnmts
 Fixed a bug cause random meta id and hash values in xml metadata
