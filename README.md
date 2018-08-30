@@ -11,10 +11,10 @@ Thanks: SciresM, Rajkosto, Switch Brew
 You need to place your keyset file with "keys.dat" filename in the same folder as 4NXCI  
 Required keys are:  
 
-```
-header_key  
-key_area_key_application_xx  
-```
+Key Name | Description
+-------- | -----------
+header_key | NCA Header Key
+key_area_key_application_xx | Application key area encryption keys
 
 Created NSP files are located in the same folder as 4NXCI with 'titleid.nsp' filename  
 4NXCI creates "4nxci_extracted_xci" folder as a temp folder, you can remove it after the conversion is done
