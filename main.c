@@ -105,14 +105,10 @@ int main(int argc, char **argv)
 
     // Process ncas in cnmts
     printf("===> Processing Application Metadata:\n");
-    application_nsp.nsp_entry = (nsp_entry_t *)malloc(application_cnmt.nca_count + 4);
-    memset(&application_nsp, 0, sizeof(application_nsp));
     cnmt_gamecard_process(xci_ctx.tool_ctx, &application_cnmt_xml, &application_cnmt, &application_nsp);
     if (patch_cnmt.title_id != 0)
     {
         printf("===> Processing Patch Metadata:\n");
-        patch_nsp.nsp_entry = (nsp_entry_t *)malloc(patch_cnmt.nca_count + 4);
-        memset(&patch_nsp, 0, sizeof(patch_nsp));
         cnmt_download_process(xci_ctx.tool_ctx, &patch_cnmt_xml, &patch_cnmt, &patch_nsp);
     }
     if (addons_cnmt_ctx.count != 0)
@@ -122,8 +118,6 @@ int main(int argc, char **argv)
         for (int i = 0; i < addons_cnmt_ctx.count; i++)
         {
             printf("===> Processing AddOn %i Metadata:\n", i + 1);
-            addon_nsps[i].nsp_entry = (nsp_entry_t *)malloc(addons_cnmt_ctx.addon_cnmt[i].nca_count + 4);
-            memset(&addon_nsps[i].nsp_entry, 0, sizeof(nsp_entry_t));
             cnmt_gamecard_process(xci_ctx.tool_ctx, &addons_cnmt_ctx.addon_cnmt_xml[i], &addons_cnmt_ctx.addon_cnmt[i], &addon_nsps[i]);
         }
     }
