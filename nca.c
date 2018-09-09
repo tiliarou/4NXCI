@@ -373,15 +373,10 @@ void nca_meta_context_process(cnmt_ctx_t *cnmt_ctx, nca_ctx_t *ctx, cnmt_header_
     cnmt_ctx->title_version = cnmt_header->title_version;
     cnmt_ctx->requiredsysversion = cnmt_header->min_version;
     cnmt_ctx->nca_count = cnmt_header->content_entry_count;
-    if (ctx->has_rights_id)
-        cnmt_ctx->keygen_min = (unsigned char)ctx->header.rights_id[15];
+    if (ctx->header.crypto_type2 > ctx->header.crypto_type)
+        cnmt_ctx->keygen_min = ctx->header.crypto_type2;
     else
-    {
-        if (ctx->header.crypto_type2 > ctx->header.crypto_type)
-            cnmt_ctx->keygen_min = ctx->header.crypto_type2;
-        else
-            cnmt_ctx->keygen_min = ctx->header.crypto_type;
-    }
+        cnmt_ctx->keygen_min = ctx->header.crypto_type;
 
     // Read content and decrypt records
     cnmt_ctx->cnmt_content_records = (cnmt_content_record_t *)malloc(cnmt_ctx->nca_count * sizeof(cnmt_content_record_t));
@@ -415,16 +410,6 @@ void nca_saved_meta_process(nca_ctx_t *ctx, filepath_t *filepath)
         ctx->crypto_type = ctx->header.crypto_type2;
     if (ctx->crypto_type)
         ctx->crypto_type--; /* 0, 1 are both master key 0. */
-
-    /* Rights ID. */
-    for (unsigned int i = 0; i < 0x10; i++)
-    {
-        if (ctx->header.rights_id[i] != 0)
-        {
-            ctx->has_rights_id = 1;
-            break;
-        }
-    }
 
     nca_decrypt_key_area(ctx);
     ctx->section_contexts[0].aes = new_aes_ctx(ctx->decrypted_keys[2], 16, AES_MODE_CTR);
@@ -475,13 +460,13 @@ void nca_saved_meta_process(nca_ctx_t *ctx, filepath_t *filepath)
         // Gamecard may contain more than one Addon Meta
         if (addons_cnmt_ctx.count == 0)
         {
-            addons_cnmt_ctx.addon_cnmt = (cnmt_ctx_t*)calloc(1, sizeof(cnmt_ctx_t));
-            addons_cnmt_ctx.addon_cnmt_xml = (cnmt_xml_ctx_t*)calloc(1, sizeof(cnmt_xml_ctx_t));
+            addons_cnmt_ctx.addon_cnmt = (cnmt_ctx_t *)calloc(1, sizeof(cnmt_ctx_t));
+            addons_cnmt_ctx.addon_cnmt_xml = (cnmt_xml_ctx_t *)calloc(1, sizeof(cnmt_xml_ctx_t));
         }
         else
         {
-            addons_cnmt_ctx.addon_cnmt = (cnmt_ctx_t*)realloc(addons_cnmt_ctx.addon_cnmt, (addons_cnmt_ctx.count + 1) * sizeof(cnmt_ctx_t));
-            addons_cnmt_ctx.addon_cnmt_xml = (cnmt_xml_ctx_t*)realloc(addons_cnmt_ctx.addon_cnmt_xml, (addons_cnmt_ctx.count + 1) * sizeof(cnmt_xml_ctx_t));
+            addons_cnmt_ctx.addon_cnmt = (cnmt_ctx_t *)realloc(addons_cnmt_ctx.addon_cnmt, (addons_cnmt_ctx.count + 1) * sizeof(cnmt_ctx_t));
+            addons_cnmt_ctx.addon_cnmt_xml = (cnmt_xml_ctx_t *)realloc(addons_cnmt_ctx.addon_cnmt_xml, (addons_cnmt_ctx.count + 1) * sizeof(cnmt_xml_ctx_t));
             memset(&addons_cnmt_ctx.addon_cnmt[addons_cnmt_ctx.count], 0, sizeof(cnmt_ctx_t));
             memset(&addons_cnmt_ctx.addon_cnmt_xml[addons_cnmt_ctx.count], 0, sizeof(cnmt_xml_ctx_t));
         }
