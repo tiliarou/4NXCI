@@ -1,3 +1,9 @@
+v1.30:
+Added Options
+Added option for skipping dummy cert and tik creation
+Added option for manually loading keyset file
+Removed rightsid calculation for NCA Metadatas
+
 v1.21:
 Fixed a bug cause crash when converting gamecards with 1 dlc
 
