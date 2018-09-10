@@ -28,7 +28,13 @@ cnmt_addons_ctx_t addons_cnmt_ctx;
 // Print Usage
 static void usage(void)
 {
-    fprintf(stderr, "Usage: %s <file.xci>\n", USAGE_PROGRAM_NAME);
+    fprintf(stderr,
+        "Usage: %s [options...] <path_to_file.xci>\n\n"
+        "Options:\n"
+        "-k, --keyset             Set keyset filepath, default filepath is ." OS_PATH_SEPARATOR "keys.dat\n"
+        "-h, --help               Display usage\n"
+        "--nodummytik             Skips creating and packing dummy tik and cert into nsps\n"
+        , USAGE_PROGRAM_NAME);
     exit(EXIT_FAILURE);
 }
 
@@ -57,8 +63,41 @@ int main(int argc, char **argv)
 
     filepath_init(&keypath);
     pki_initialize_keyset(&tool_ctx.settings.keyset, KEYSET_RETAIL);
-    // Hardcode keyfile path
+    // Default keyset filepath
     filepath_set(&keypath, "keys.dat");
+
+    // Parse options
+    while (1)
+    {
+        int option_index;
+        int c;
+        static struct option long_options[] =
+            {
+                {"keyset", 1, NULL, 'k'},
+                {"help", 0, NULL, 'h'},
+                {"nodummytik", 0, NULL, 1},
+                {NULL, 0, NULL, 0},
+            };
+
+        c = getopt_long(argc, argv, "k:h", long_options, &option_index);
+        if (c == -1)
+            break;
+
+        switch (c)
+        {
+            case 'k':
+                filepath_set(&keypath, optarg);
+                break;
+            case 'h':
+                usage();
+                break;
+            case 1:
+                tool_ctx.settings.no_dummy_tik = 1;
+                break;
+            default:
+                usage();
+        }
+    }
 
     // Try to populate default keyfile.
     FILE *keyfile = NULL;
@@ -72,17 +111,15 @@ int main(int argc, char **argv)
     }
     else
     {
-        fprintf(stderr, "unable to open keys.dat\n"
-                        "make sure to put your keyset in keys.dat\n");
+        fprintf(stderr, "Unable to open keyset '%s'\n"
+                        "Use -k or --keyset to specify your keyset path or place your keyset in ." OS_PATH_SEPARATOR "keys.dat\n", keypath.char_path);
         return EXIT_FAILURE;
     }
 
-    if (argv[1] != NULL)
-    {
-        // Copy input file.
-        strncpy(input_name, argv[1], sizeof(input_name));
-    }
-    else
+    // Copy input file
+    if (optind == argc - 1)
+        strncpy(input_name, argv[optind], sizeof(input_name));
+    else if ((optind < argc) || (argc == 1))
         usage();
 
     if (!(tool_ctx.file = fopen(input_name, "rb")))
@@ -97,6 +134,7 @@ int main(int argc, char **argv)
     xci_ctx.tool_ctx = &tool_ctx;
 
     // Hardcode secure partition save path to "4nxci_extracted_nsp" directory
+    filepath_init(&xci_ctx.tool_ctx->settings.secure_dir_path);
     filepath_set(&xci_ctx.tool_ctx->settings.secure_dir_path, "4nxci_extracted_xci");
 
     printf("\n");
@@ -128,7 +166,7 @@ int main(int argc, char **argv)
         printf("Update NSP: %s\n", patch_nsp.filepath.char_path);
     if (addons_cnmt_ctx.count != 0)
     {
-        for (int i2=0; i2< addons_cnmt_ctx.count; i2++)
+        for (int i2 = 0; i2 < addons_cnmt_ctx.count; i2++)
             printf("DLC NSP %i: %s\n", i2 + 1, addon_nsps[i2].filepath.char_path);
     }
 

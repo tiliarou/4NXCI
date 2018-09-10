@@ -54,6 +54,7 @@ typedef struct {
 } override_filepath_t;
 
 typedef struct {
+    uint8_t no_dummy_tik;
     nca_keyset_t keyset;
     filepath_t section_paths[4];
     filepath_t section_dir_paths[4];

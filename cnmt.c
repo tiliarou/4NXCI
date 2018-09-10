@@ -59,6 +59,8 @@ void cnmt_create_xml(cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_ctx_t *cnmt_ctx, nsp_ctx
 
 void cnmt_gamecard_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_ctx_t *cnmt_ctx, nsp_ctx_t *nsp_ctx)
 {
+    cnmt_ctx->has_rightsid = 0;
+
     // Set xml meta values
     cnmt_xml_ctx->contents = (cnmt_xml_content_t *)malloc((cnmt_ctx->nca_count + 1) * sizeof(cnmt_xml_content_t)); // ncas + meta nca
     cnmt_xml_ctx->title_id = (char *)calloc(1, 17);
@@ -138,10 +140,21 @@ void cnmt_gamecard_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_
 
     printf("\n");
     cnmt_create_xml(cnmt_xml_ctx, cnmt_ctx, nsp_ctx);
-    dummy_create_tik(&tik_filepath, nsp_ctx);
-    dummy_create_cert(&cert_filepath, nsp_ctx);
+    if (tool->settings.no_dummy_tik == 1)
+    {
+        // Skip dummy cert and tik
+        nsp_ctx->entry_count = cnmt_ctx->nca_count + 2;
+        nsp_ctx->nsp_entry = nsp_ctx->nsp_entry + 2;
+    }
+    else
+    {
+        dummy_create_tik(&tik_filepath, nsp_ctx);
+        dummy_create_cert(&cert_filepath, nsp_ctx);
+        // .tik + .cert + .cnmt.xml + ncas . cnmt.nca
+        nsp_ctx->entry_count = cnmt_ctx->nca_count + 4;
+    }
     printf("\n");
-    nsp_create(nsp_ctx, cnmt_ctx->nca_count + 4);
+    nsp_create(nsp_ctx);
 }
 
 void cnmt_download_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_ctx_t *cnmt_ctx, nsp_ctx_t *nsp_ctx)
@@ -239,8 +252,19 @@ void cnmt_download_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_
         dummy_create_tik(&tik_filepath, nsp_ctx);
         dummy_create_cert(&cert_filepath, nsp_ctx);
     }
+    if ((cnmt_ctx->has_rightsid == 0) && (tool->settings.no_dummy_tik == 1))
+    {
+        // Skip dummy cert and tik
+        nsp_ctx->entry_count = cnmt_ctx->nca_count + 2;
+        nsp_ctx->nsp_entry = nsp_ctx->nsp_entry + 2;
+    }
+    else
+    {
+        // .tik + .cert + .cnmt.xml + ncas . cnmt.nca
+        nsp_ctx->entry_count = cnmt_ctx->nca_count + 4;
+    }
     printf("\n");
-    nsp_create(nsp_ctx, cnmt_ctx->nca_count + 4);
+    nsp_create(nsp_ctx);
 }
 
 char *cnmt_get_title_type(cnmt_ctx_t *cnmt_ctx)
