@@ -6,25 +6,25 @@
 #include "pfs0.h"
 #include "utils.h"
 
-void nsp_create(nsp_ctx_t *nsp_ctx, uint8_t entry_count)
+void nsp_create(nsp_ctx_t *nsp_ctx)
 {
     // nsp file name is tid.nsp
     printf("Creating nsp %s\n", nsp_ctx->filepath.char_path);
 
-    uint32_t string_table_size = 42 * entry_count;
+    uint32_t string_table_size = 42 * nsp_ctx->entry_count;
     pfs0_header_t nsp_header = {
         .magic = MAGIC_PFS0,
-        .num_files = entry_count,
+        .num_files = nsp_ctx->entry_count,
         .string_table_size = string_table_size,
         .reserved = 0};
 
     uint64_t offset = 0;
     uint32_t filename_offset = 0;
     char *string_table = (char *)calloc(1, string_table_size);
-    nsp_file_entry_table_t *file_entry_table = (nsp_file_entry_table_t *)calloc(1, entry_count * sizeof(nsp_file_entry_table_t));
+    nsp_file_entry_table_t *file_entry_table = (nsp_file_entry_table_t *)calloc(1, nsp_ctx->entry_count * sizeof(nsp_file_entry_table_t));
 
-    // Create fill file entry table
-    for (int i = 0; i < entry_count; i++)
+    // Fill file entry table
+    for (int i = 0; i < nsp_ctx->entry_count; i++)
     {
         file_entry_table[i].offset = offset;
         file_entry_table[i].filename_offset = filename_offset;
@@ -50,7 +50,7 @@ void nsp_create(nsp_ctx_t *nsp_ctx, uint8_t entry_count)
     }
 
     // Write file entry table
-    if (!fwrite(file_entry_table, sizeof(nsp_file_entry_table_t), entry_count, nsp_file))
+    if (!fwrite(file_entry_table, sizeof(nsp_file_entry_table_t), nsp_ctx->entry_count, nsp_file))
     {
         fprintf(stderr, "Unable to write nsp file entry table");
         exit(EXIT_FAILURE);
@@ -63,7 +63,7 @@ void nsp_create(nsp_ctx_t *nsp_ctx, uint8_t entry_count)
         exit(EXIT_FAILURE);
     }
 
-    for (int i2 = 0; i2 < entry_count; i2++)
+    for (int i2 = 0; i2 < nsp_ctx->entry_count; i2++)
     {
         FILE *nsp_data_file;
         printf("Packing %s into %s\n", nsp_ctx->nsp_entry[i2].filepath.char_path, nsp_ctx->filepath.char_path);
@@ -72,7 +72,7 @@ void nsp_create(nsp_ctx_t *nsp_ctx, uint8_t entry_count)
             fprintf(stderr, "unable to open %s: %s\n", nsp_ctx->nsp_entry[i2].filepath.char_path, strerror(errno));
             exit(EXIT_FAILURE);
         }
-        uint64_t read_size = 0x4000000; // 4 MB buffer.
+        uint64_t read_size = 0x61A8000; // 100 MB buffer.
         unsigned char *buf = malloc(read_size);
         if (buf == NULL)
         {

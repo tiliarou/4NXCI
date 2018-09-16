@@ -54,18 +54,12 @@ typedef struct {
 } override_filepath_t;
 
 typedef struct {
+    uint8_t no_dummy_tik;
     nca_keyset_t keyset;
     filepath_t section_paths[4];
     filepath_t section_dir_paths[4];
-    override_filepath_t exefs_path;
-    override_filepath_t exefs_dir_path;
-    override_filepath_t romfs_path;
-    override_filepath_t romfs_dir_path;
     override_filepath_t out_dir_path;
     filepath_t hfs0_dir_path;
-    filepath_t rootpt_dir_path;
-    filepath_t update_dir_path;
-    filepath_t normal_dir_path;
     filepath_t secure_dir_path;
 } nxci_settings_t;
 

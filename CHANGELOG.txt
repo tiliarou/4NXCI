@@ -1,3 +1,28 @@
+v1.30:
+Added Options
+Added option for skipping dummy cert and tik creation
+Added option for manually loading keyset file
+Removed rightsid calculation for NCA Metadatas
+
+v1.21:
+Fixed a bug cause crash when converting gamecards with 1 dlc
+
+v1.20:
+Added support for gamecards with more than one dlc
+Fixed a bug cause wrong keygeneration value in xml metadata
+
+v1.10:
+Added cert and tik packing for download type cnmts
+Fixed a bug cause random meta id and hash values in xml metadata
+Fixed a bug cause random metadata nca filename in created nsp
+Changed dummy tik titleid
+
+v1.00:
+Increased conversion speed (buffer size is now 100MB)
+Modified most parts of dummy cert
+Minor console output changes
+Improved stability
+
 v0.9-beta.2:
 Improved stability
 

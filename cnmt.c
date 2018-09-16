@@ -59,6 +59,8 @@ void cnmt_create_xml(cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_ctx_t *cnmt_ctx, nsp_ctx
 
 void cnmt_gamecard_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_ctx_t *cnmt_ctx, nsp_ctx_t *nsp_ctx)
 {
+    cnmt_ctx->has_rightsid = 0;
+
     // Set xml meta values
     cnmt_xml_ctx->contents = (cnmt_xml_content_t *)malloc((cnmt_ctx->nca_count + 1) * sizeof(cnmt_xml_content_t)); // ncas + meta nca
     cnmt_xml_ctx->title_id = (char *)calloc(1, 17);
@@ -86,7 +88,7 @@ void cnmt_gamecard_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_
     free(nsp_filename);
 
     // nsp entries count = nca counts + .tik + .cert + .cnmmt.xml + .cnmt.nca
-    nsp_ctx->nsp_entry = (nsp_entry_t *)malloc(sizeof(nsp_entry_t) * (cnmt_ctx->nca_count + 4));
+    nsp_ctx->nsp_entry = (nsp_entry_t *)calloc(1, sizeof(nsp_entry_t) * (cnmt_ctx->nca_count + 4));
 
     // Process NCA files
     nca_ctx_t nca_ctx;
@@ -105,7 +107,7 @@ void cnmt_gamecard_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_
         free(filename);
         if (!(nca_ctx.file = os_fopen(filepath.os_path, OS_MODE_EDIT)))
         {
-            fprintf(stderr, "unable to open %s: %s\n", filepath.os_path, strerror(errno));
+            fprintf(stderr, "unable to open %s: %s\n", filepath.char_path, strerror(errno));
             exit(EXIT_FAILURE);
         }
         nca_gamecard_process(&nca_ctx, &filepath, index, cnmt_xml_ctx, cnmt_ctx, nsp_ctx);
@@ -113,9 +115,11 @@ void cnmt_gamecard_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_
     }
 
     // Process meta nca
+    nca_init(&nca_ctx);
+    nca_ctx.tool_ctx = tool;
     if (!(nca_ctx.file = os_fopen(cnmt_ctx->meta_filepath.os_path, OS_MODE_EDIT)))
     {
-        fprintf(stderr, "unable to open %s: %s\n", cnmt_ctx->meta_filepath.os_path, strerror(errno));
+        fprintf(stderr, "unable to open %s: %s\n", cnmt_ctx->meta_filepath.char_path, strerror(errno));
         exit(EXIT_FAILURE);
     }
     nca_gamecard_process(&nca_ctx, &cnmt_ctx->meta_filepath, cnmt_ctx->nca_count, cnmt_xml_ctx, cnmt_ctx, nsp_ctx);
@@ -136,15 +140,30 @@ void cnmt_gamecard_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_
 
     printf("\n");
     cnmt_create_xml(cnmt_xml_ctx, cnmt_ctx, nsp_ctx);
-    dummy_create_tik(&tik_filepath, nsp_ctx);
-    dummy_create_cert(&cert_filepath, nsp_ctx);
+    if (tool->settings.no_dummy_tik == 1)
+    {
+        // Skip dummy cert and tik
+        nsp_ctx->entry_count = cnmt_ctx->nca_count + 2;
+        nsp_ctx->nsp_entry = nsp_ctx->nsp_entry + 2;
+    }
+    else
+    {
+        dummy_create_tik(&tik_filepath, nsp_ctx);
+        dummy_create_cert(&cert_filepath, nsp_ctx);
+        // .tik + .cert + .cnmt.xml + ncas . cnmt.nca
+        nsp_ctx->entry_count = cnmt_ctx->nca_count + 4;
+    }
     printf("\n");
-    nsp_create(nsp_ctx, cnmt_ctx->nca_count + 4);
+    nsp_create(nsp_ctx);
 }
 
 void cnmt_download_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_ctx_t *cnmt_ctx, nsp_ctx_t *nsp_ctx)
 {
-    cnmt_ctx->nca_count = application_cnmt.nca_count; // Skipping delta fragments
+    cnmt_ctx->has_rightsid = 0;
+
+    // Skipping delta fragments
+    if (cnmt_ctx->type == 0x81 && cnmt_ctx->nca_count > application_cnmt.nca_count)
+        cnmt_ctx->nca_count = application_cnmt.nca_count;
 
     // Set xml meta values
     cnmt_xml_ctx->contents = (cnmt_xml_content_t *)malloc((cnmt_ctx->nca_count + 1) * sizeof(cnmt_xml_content_t)); // ncas + meta nca
@@ -173,7 +192,7 @@ void cnmt_download_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_
     free(nsp_filename);
 
     // nsp entries count = nca counts + .tik + .cert + .cnmmt.xml + .cnmt.nca
-    nsp_ctx->nsp_entry = (nsp_entry_t *)malloc(sizeof(nsp_entry_t) * (cnmt_ctx->nca_count + 4));
+    nsp_ctx->nsp_entry = (nsp_entry_t *)calloc(1, sizeof(nsp_entry_t) * (cnmt_ctx->nca_count + 4));
 
     // Process NCA files
     nca_ctx_t nca_ctx;
@@ -192,7 +211,7 @@ void cnmt_download_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_
         free(filename);
         if (!(nca_ctx.file = os_fopen(filepath.os_path, OS_MODE_EDIT)))
         {
-            fprintf(stderr, "unable to open %s: %s\n", filepath.os_path, strerror(errno));
+            fprintf(stderr, "unable to open %s: %s\n", filepath.char_path, strerror(errno));
             exit(EXIT_FAILURE);
         }
         nca_download_process(&nca_ctx, &filepath, index, cnmt_xml_ctx, cnmt_ctx, nsp_ctx);
@@ -200,9 +219,11 @@ void cnmt_download_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_
     }
 
     // Process meta nca
+    nca_init(&nca_ctx);
+    nca_ctx.tool_ctx = tool;
     if (!(nca_ctx.file = os_fopen(cnmt_ctx->meta_filepath.os_path, OS_MODE_EDIT)))
     {
-        fprintf(stderr, "unable to open %s: %s\n", cnmt_ctx->meta_filepath.os_path, strerror(errno));
+        fprintf(stderr, "unable to open %s: %s\n", cnmt_ctx->meta_filepath.char_path, strerror(errno));
         exit(EXIT_FAILURE);
     }
     nca_download_process(&nca_ctx, &cnmt_ctx->meta_filepath, cnmt_ctx->nca_count, cnmt_xml_ctx, cnmt_ctx, nsp_ctx);
@@ -213,20 +234,37 @@ void cnmt_download_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_
     filepath_init(&tik_filepath);
     filepath_init(&cert_filepath);
 
-    // tik filename is: title id (16 bytes) + key generation (16 bytes) + .tik
-    filepath_copy(&tik_filepath, &nca_ctx.tool_ctx->settings.secure_dir_path);
-    filepath_append(&tik_filepath, "%s000000000000000%u.tik", cnmt_xml_ctx->title_id, cnmt_ctx->keygen_min);
+    if (cnmt_ctx->has_rightsid == 0)
+    {
+        // tik filename is: title id (16 bytes) + 15 bytes of 0 + key generation + .tik
+        filepath_copy(&tik_filepath, &nca_ctx.tool_ctx->settings.secure_dir_path);
+        filepath_append(&tik_filepath, "%s000000000000000%u.tik", cnmt_xml_ctx->title_id, cnmt_ctx->keygen_min);
 
-    // cert filename is: title id (16 bytes) + key generation (16 bytes) + .cert
-    filepath_copy(&cert_filepath, &nca_ctx.tool_ctx->settings.secure_dir_path);
-    filepath_append(&cert_filepath, "%s000000000000000%u.cert", cnmt_xml_ctx->title_id, cnmt_ctx->keygen_min);
+        // cert filename is: title id (16 bytes) + 15 bytes of 0 + key generation + .cert
+        filepath_copy(&cert_filepath, &nca_ctx.tool_ctx->settings.secure_dir_path);
+        filepath_append(&cert_filepath, "%s000000000000000%u.cert", cnmt_xml_ctx->title_id, cnmt_ctx->keygen_min);
+    }
 
     printf("\n");
     cnmt_create_xml(cnmt_xml_ctx, cnmt_ctx, nsp_ctx);
-    dummy_create_tik(&tik_filepath, nsp_ctx);
-    dummy_create_cert(&cert_filepath, nsp_ctx);
+    if (cnmt_ctx->has_rightsid == 0)
+    {
+        dummy_create_tik(&tik_filepath, nsp_ctx);
+        dummy_create_cert(&cert_filepath, nsp_ctx);
+    }
+    if ((cnmt_ctx->has_rightsid == 0) && (tool->settings.no_dummy_tik == 1))
+    {
+        // Skip dummy cert and tik
+        nsp_ctx->entry_count = cnmt_ctx->nca_count + 2;
+        nsp_ctx->nsp_entry = nsp_ctx->nsp_entry + 2;
+    }
+    else
+    {
+        // .tik + .cert + .cnmt.xml + ncas . cnmt.nca
+        nsp_ctx->entry_count = cnmt_ctx->nca_count + 4;
+    }
     printf("\n");
-    nsp_create(nsp_ctx, cnmt_ctx->nca_count + 4);
+    nsp_create(nsp_ctx);
 }
 
 char *cnmt_get_title_type(cnmt_ctx_t *cnmt_ctx)

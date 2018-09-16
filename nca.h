@@ -15,20 +15,25 @@
 #define MAGIC_NCA3 0x3341434E /* "NCA3" */
 #define MAGIC_NCA0 0x3041434E /* "NCA0" */
 
-typedef struct __attribute__((__packed__)) {
+#pragma pack(push, 1)
+typedef struct {
     uint32_t media_start_offset;
     uint32_t media_end_offset;
     uint8_t _0x8[0x8]; /* Padding. */
 } nca_section_entry_t;
+#pragma pack(pop)
 
-typedef struct __attribute__((__packed__)) {
+#pragma pack(push, 1)
+typedef struct {
     ivfc_hdr_t ivfc_header;
     uint8_t _0xE0[0x18];
     bktr_header_t relocation_header;
     bktr_header_t subsection_header;
 } bktr_superblock_t;
+#pragma pack(pop)
 
-typedef struct __attribute__((__packed__)) {
+#pragma pack(push, 1)
+typedef struct {
     bktr_superblock_t *superblock;
     FILE *file;
     validity_t superblock_hash_validity;
@@ -43,6 +48,7 @@ typedef struct __attribute__((__packed__)) {
     uint64_t bktr_seek;
     uint64_t base_seek;
 } bktr_section_ctx_t;
+#pragma pack(pop)
 
 typedef enum {
     PARTITION_ROMFS = 0,

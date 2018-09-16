@@ -12,13 +12,16 @@
 
 #define MAGIC_IVFC 0x43465649
 
+#pragma pack(push, 1)
 typedef struct {
     uint64_t logical_offset;
     uint64_t hash_data_size;
     uint32_t block_size;
     uint32_t reserved;
 } ivfc_level_hdr_t;
+#pragma pack(pop)
 
+#pragma pack(push, 1)
 typedef struct {
     uint64_t data_offset;
     uint64_t data_size;
@@ -26,7 +29,9 @@ typedef struct {
     uint32_t hash_block_size;
     validity_t hash_validity;
 } ivfc_level_ctx_t;
+#pragma pack(pop)
 
+#pragma pack(push, 1)
 typedef struct {
     uint32_t magic;
     uint32_t id;
@@ -36,7 +41,9 @@ typedef struct {
     uint8_t _0xA0[0x20];
     uint8_t master_hash[0x20];
 } ivfc_hdr_t;
+#pragma pack(pop)
 
+#pragma pack(push, 1)
 typedef struct {
     uint64_t header_size;
     uint64_t dir_hash_table_offset;
@@ -49,7 +56,9 @@ typedef struct {
     uint64_t file_meta_table_size;
     uint64_t data_offset;
 } romfs_hdr_t;
+#pragma pack(pop)
 
+#pragma pack(push, 1)
 typedef struct {
     uint32_t parent;
     uint32_t sibling;
@@ -59,7 +68,9 @@ typedef struct {
     uint32_t name_size;
     char name[];
 } romfs_direntry_t;
+#pragma pack(pop)
 
+#pragma pack(push, 1)
 typedef struct {
     uint32_t parent;
     uint32_t sibling;
@@ -69,11 +80,14 @@ typedef struct {
     uint32_t name_size;
     char name[];
 } romfs_fentry_t;
+#pragma pack(pop)
 
+#pragma pack(push, 1)
 typedef struct {
     ivfc_hdr_t ivfc_header;
     uint8_t _0xE0[0x58];
 } romfs_superblock_t;
+#pragma pack(pop)
 
 typedef struct {
     romfs_superblock_t *superblock;

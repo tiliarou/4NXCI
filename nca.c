@@ -372,8 +372,11 @@ void nca_meta_context_process(cnmt_ctx_t *cnmt_ctx, nca_ctx_t *ctx, cnmt_header_
     cnmt_ctx->patch_id = cnmt_header->patch_id;
     cnmt_ctx->title_version = cnmt_header->title_version;
     cnmt_ctx->requiredsysversion = cnmt_header->min_version;
-    cnmt_ctx->keygen_min = ctx->crypto_type;
     cnmt_ctx->nca_count = cnmt_header->content_entry_count;
+    if (ctx->header.crypto_type2 > ctx->header.crypto_type)
+        cnmt_ctx->keygen_min = ctx->header.crypto_type2;
+    else
+        cnmt_ctx->keygen_min = ctx->header.crypto_type;
 
     // Read content and decrypt records
     cnmt_ctx->cnmt_content_records = (cnmt_content_record_t *)malloc(cnmt_ctx->nca_count * sizeof(cnmt_content_record_t));
@@ -399,7 +402,6 @@ void nca_saved_meta_process(nca_ctx_t *ctx, filepath_t *filepath)
     {
         fprintf(stderr, "Invalid NCA header! Are keys correct?\n");
         exit(EXIT_FAILURE);
-        return;
     }
 
     /* Sort out crypto type. */
@@ -434,7 +436,7 @@ void nca_saved_meta_process(nca_ctx_t *ctx, filepath_t *filepath)
     pfs0_offset = ctx->header.fs_headers[0].pfs0_superblock.pfs0_offset;
     nca_section_fseek(&ctx->section_contexts[0], pfs0_offset);
     nca_section_fread(&ctx->section_contexts[0], &pfs0_header, sizeof(pfs0_header_t));
-    
+
     // Read and decrypt cnmt header
     pfs0_string_table_offset = pfs0_offset + sizeof(pfs0_header_t) + (pfs0_header.num_files * sizeof(pfs0_file_entry_t));
     cnmt_start_offset = pfs0_string_table_offset + pfs0_header.string_table_size;
@@ -445,7 +447,7 @@ void nca_saved_meta_process(nca_ctx_t *ctx, filepath_t *filepath)
     uint64_t digest_offset = 0;
     digest_offset = pfs0_offset + ctx->header.fs_headers[0].pfs0_superblock.pfs0_size - 0x20;
     content_records_start_offset = cnmt_start_offset + sizeof(cnmt_header_t) + cnmt_header.content_entry_offset - 0x10;
-    
+
     switch (cnmt_header.type)
     {
     case 0x80: // Application
@@ -455,10 +457,24 @@ void nca_saved_meta_process(nca_ctx_t *ctx, filepath_t *filepath)
         nca_meta_context_process(&patch_cnmt, ctx, &cnmt_header, digest_offset, content_records_start_offset, filepath);
         break;
     case 0x82: // AddOn
-        nca_meta_context_process(&addon_cnmt, ctx, &cnmt_header, digest_offset, content_records_start_offset, filepath);
+        // Gamecard may contain more than one Addon Meta
+        if (addons_cnmt_ctx.count == 0)
+        {
+            addons_cnmt_ctx.addon_cnmt = (cnmt_ctx_t *)calloc(1, sizeof(cnmt_ctx_t));
+            addons_cnmt_ctx.addon_cnmt_xml = (cnmt_xml_ctx_t *)calloc(1, sizeof(cnmt_xml_ctx_t));
+        }
+        else
+        {
+            addons_cnmt_ctx.addon_cnmt = (cnmt_ctx_t *)realloc(addons_cnmt_ctx.addon_cnmt, (addons_cnmt_ctx.count + 1) * sizeof(cnmt_ctx_t));
+            addons_cnmt_ctx.addon_cnmt_xml = (cnmt_xml_ctx_t *)realloc(addons_cnmt_ctx.addon_cnmt_xml, (addons_cnmt_ctx.count + 1) * sizeof(cnmt_xml_ctx_t));
+            memset(&addons_cnmt_ctx.addon_cnmt[addons_cnmt_ctx.count], 0, sizeof(cnmt_ctx_t));
+            memset(&addons_cnmt_ctx.addon_cnmt_xml[addons_cnmt_ctx.count], 0, sizeof(cnmt_xml_ctx_t));
+        }
+        nca_meta_context_process(&addons_cnmt_ctx.addon_cnmt[addons_cnmt_ctx.count], ctx, &cnmt_header, digest_offset, content_records_start_offset, filepath);
+        addons_cnmt_ctx.count++;
         break;
     default:
-        fprintf(stderr, "Unknown meta type: %x\n", (unsigned char)cnmt_header.type);
+        fprintf(stderr, "Unknown meta type! Are keys correct?\n");
         exit(EXIT_FAILURE);
     }
 }
@@ -470,7 +486,6 @@ void nca_gamecard_process(nca_ctx_t *ctx, filepath_t *filepath, int index, cnmt_
     {
         fprintf(stderr, "Invalid NCA header! Are keys correct?\n");
         exit(EXIT_FAILURE);
-        return;
     }
 
     uint8_t content_type = ctx->header.content_type;
@@ -485,25 +500,20 @@ void nca_gamecard_process(nca_ctx_t *ctx, filepath_t *filepath, int index, cnmt_
 
     // Set required values for creating .cnmt.xml
     cnmt_xml_ctx->contents[index].size = ctx->header.nca_size;
-    cnmt_xml_ctx->contents[index].keygeneration = ctx->crypto_type;
-    if (content_type != 1) // Meta nca lacks of content records
-    {
-        cnmt_xml_ctx->contents[index].type = cnmt_get_content_type(cnmt_ctx->cnmt_content_records[index].type);
-    }
+    if (ctx->header.crypto_type2 > ctx->header.crypto_type)
+        cnmt_xml_ctx->contents[index].keygeneration = ctx->header.crypto_type2;
     else
-    {
+        cnmt_xml_ctx->contents[index].keygeneration = ctx->header.crypto_type;
+    if (content_type != 1) // Meta nca lacks of content records
+        cnmt_xml_ctx->contents[index].type = cnmt_get_content_type(cnmt_ctx->cnmt_content_records[index].type);
+    else
         cnmt_xml_ctx->contents[index].type = cnmt_get_content_type(0x00);
-    }
 
     // Patch ACID sig if nca type = program
     if (content_type == 0) // Program nca
-    {
         nca_exefs_npdm_process(ctx);
-    }
     else if (content_type == 1) // Meta nca
-    {
         nca_cnmt_process(ctx, cnmt_ctx);
-    }
 
     // Set distrbution type to "System"
     ctx->header.distribution = 0;
@@ -515,7 +525,7 @@ void nca_gamecard_process(nca_ctx_t *ctx, filepath_t *filepath, int index, cnmt_
 
     // Calculate SHA-256 hash
     sha_ctx_t *sha_ctx = new_sha_ctx(HASH_TYPE_SHA256, 0);
-    uint64_t read_size = 0x4000000; // 4 MB buffer.
+    uint64_t read_size = 0x61A8000; // 100 MB buffer.
     unsigned char *buf = malloc(read_size);
     if (buf == NULL)
     {
@@ -594,7 +604,6 @@ void nca_download_process(nca_ctx_t *ctx, filepath_t *filepath, int index, cnmt_
     {
         fprintf(stderr, "Invalid NCA header! Are keys correct?\n");
         exit(EXIT_FAILURE);
-        return;
     }
 
     uint8_t content_type = ctx->header.content_type;
@@ -606,19 +615,111 @@ void nca_download_process(nca_ctx_t *ctx, filepath_t *filepath, int index, cnmt_
     if (ctx->crypto_type)
         ctx->crypto_type--; /* 0, 1 are both master key 0. */
 
+    /* Rights ID. */
+    for (unsigned int i = 0; i < 0x10; i++)
+    {
+        if (ctx->header.rights_id[i] != 0)
+        {
+            ctx->has_rights_id = 1;
+            break;
+        }
+    }
+
     printf("Processing %s\n", filepath->char_path);
 
     // Set required values for creating .cnmt.xml
     cnmt_xml_ctx->contents[index].size = ctx->header.nca_size;
-    cnmt_xml_ctx->contents[index].keygeneration = ctx->crypto_type;
-    if (content_type != 1) // Meta nca lacks of content records
-        cnmt_xml_ctx->contents[index].type = cnmt_get_content_type(cnmt_ctx->cnmt_content_records[index].type);
+    if (ctx->has_rights_id)
+    {
+        cnmt_xml_ctx->contents[index].keygeneration = (unsigned char)ctx->header.rights_id[15];
+        if (ctx->has_rights_id && ((nsp_ctx->nsp_entry[0].filepath.char_path[0] == 0) || (nsp_ctx->nsp_entry[1].filepath.char_path[0] == 0)))
+        {
+            // Convert rightsid to hex string
+            char *rights_id = (char *)calloc(1, 33);
+            hexBinaryString((unsigned char *)ctx->header.rights_id, 16, rights_id, 33);
+
+            // Set tik file path for creating nsp
+            filepath_init(&nsp_ctx->nsp_entry[0].filepath);
+            filepath_copy(&nsp_ctx->nsp_entry[0].filepath, &ctx->tool_ctx->settings.secure_dir_path);
+            filepath_append(&nsp_ctx->nsp_entry[0].filepath, "%s.tik", rights_id); // tik filename is: rightsid + .tik
+
+            // Set cert file path for creating nsp
+            filepath_init(&nsp_ctx->nsp_entry[1].filepath);
+            filepath_copy(&nsp_ctx->nsp_entry[1].filepath, &ctx->tool_ctx->settings.secure_dir_path);
+            filepath_append(&nsp_ctx->nsp_entry[1].filepath, "%s.cert", rights_id); // tik filename is: rightsid + .tik
+            free(rights_id);
+
+            // Set tik filename for creating nsp
+            nsp_ctx->nsp_entry[0].nsp_filename = (char *)calloc(1, 37);
+            strncpy(nsp_ctx->nsp_entry[0].nsp_filename, basename(nsp_ctx->nsp_entry[0].filepath.char_path), 36);
+
+            // Set cert filename for creating nsp
+            nsp_ctx->nsp_entry[1].nsp_filename = (char *)calloc(1, 38);
+            strncpy(nsp_ctx->nsp_entry[1].nsp_filename, basename(nsp_ctx->nsp_entry[1].filepath.char_path), 37);
+
+            // Set tik file size for creating nsp
+            FILE *tik_file;
+            if (!(tik_file = os_fopen(nsp_ctx->nsp_entry[0].filepath.os_path, OS_MODE_READ)))
+            {
+                fprintf(stderr, "unable to open %s: %s\n", nsp_ctx->nsp_entry[0].filepath.char_path, strerror(errno));
+                exit(EXIT_FAILURE);
+            }
+            fseeko64(tik_file, 0, SEEK_END);
+            nsp_ctx->nsp_entry[0].filesize = (uint64_t)ftello64(tik_file);
+            fclose(tik_file);
+
+            // Set cert file size for creating nsp
+            FILE *cert_file;
+            if (!(cert_file = os_fopen(nsp_ctx->nsp_entry[1].filepath.os_path, OS_MODE_READ)))
+            {
+                fprintf(stderr, "unable to open %s: %s\n", nsp_ctx->nsp_entry[1].filepath.char_path, strerror(errno));
+                exit(EXIT_FAILURE);
+            }
+            fseeko64(cert_file, 0, SEEK_END);
+            nsp_ctx->nsp_entry[1].filesize = (uint64_t)ftello64(cert_file);
+            fclose(cert_file);
+
+            cnmt_xml_ctx->keygen_min = (unsigned char)ctx->header.rights_id[15];
+            cnmt_ctx->has_rightsid = 1;
+        }
+    }
     else
+    {
+        if (ctx->header.crypto_type2 > ctx->header.crypto_type)
+            cnmt_xml_ctx->contents[index].keygeneration = ctx->header.crypto_type2;
+        else
+            cnmt_xml_ctx->contents[index].keygeneration = ctx->header.crypto_type;
+    }
+
+    char *hash_hex = (char *)calloc(1, 65);
+    if (content_type != 1) // Meta nca lacks of content records
+    {
+        cnmt_xml_ctx->contents[index].type = cnmt_get_content_type(cnmt_ctx->cnmt_content_records[index].type);
+
+        // Convert hash in meta to hex string
+        hexBinaryString(cnmt_ctx->cnmt_content_records[index].hash, 32, hash_hex, 65);
+    }
+    else
+    {
         cnmt_xml_ctx->contents[index].type = cnmt_get_content_type(0x00);
 
-    // Convert hash in meta to hex string
-    char *hash_hex = (char *)calloc(1, 65);
-    hexBinaryString(cnmt_ctx->cnmt_content_records[index].hash, 32, hash_hex, 65);
+        // Calculate Meta hash
+        sha_ctx_t *sha_ctx = new_sha_ctx(HASH_TYPE_SHA256, 0);
+        fseeko64(ctx->file, 0, SEEK_SET);
+        unsigned char *buff = (unsigned char *)malloc(ctx->header.nca_size);
+        unsigned char *meta_hash = (unsigned char *)malloc(0x20);
+        if (fread(buff, 1, ctx->header.nca_size, ctx->file) != ctx->header.nca_size)
+        {
+            fprintf(stderr, "Failed to read Metadata!\n");
+            exit(EXIT_FAILURE);
+        }
+        sha_update(sha_ctx, buff, ctx->header.nca_size);
+        sha_get_hash(sha_ctx, meta_hash);
+        free(buff);
+        free_sha_ctx(sha_ctx);
+
+        hexBinaryString(meta_hash, 32, hash_hex, 65);
+    }
 
     // Set hash and id for xml meta, id = first 16 bytes of hash
     strncpy(cnmt_xml_ctx->contents[index].hash, hash_hex, 64);

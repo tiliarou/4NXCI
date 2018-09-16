@@ -56,6 +56,7 @@ typedef struct {
     uint64_t patch_id;
     uint8_t type;
     uint8_t nca_count;
+    uint8_t has_rightsid;
     uint32_t title_version;
     unsigned char digest[0x20];
     unsigned char keygen_min;
@@ -63,6 +64,12 @@ typedef struct {
     cnmt_content_record_t *cnmt_content_records;
     filepath_t meta_filepath;
 } cnmt_ctx_t;
+
+typedef struct {
+    uint8_t count;
+    cnmt_ctx_t *addon_cnmt;
+    cnmt_xml_ctx_t *addon_cnmt_xml;
+} cnmt_addons_ctx_t;
 
 void cnmt_create_xml(cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_ctx_t *cnmt_ctx, nsp_ctx_t *nsp_ctx);
 
@@ -74,9 +81,8 @@ char *cnmt_get_title_type(cnmt_ctx_t *cnmt_ctx);
 
 extern cnmt_ctx_t application_cnmt;
 extern cnmt_ctx_t patch_cnmt;
-extern cnmt_ctx_t addon_cnmt;
 extern cnmt_xml_ctx_t application_cnmt_xml;
 extern cnmt_xml_ctx_t patch_cnmt_xml;
-extern cnmt_xml_ctx_t addon_cnmt_xml;
+extern cnmt_addons_ctx_t addons_cnmt_ctx;
 
 #endif
