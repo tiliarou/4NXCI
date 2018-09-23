@@ -42,17 +42,6 @@ void nca_free_section_contexts(nca_ctx_t *ctx)
                     free(ctx->section_contexts[i].romfs_ctx.files);
                 }
             }
-            else if (ctx->section_contexts[i].type == NCA0_ROMFS)
-            {
-                if (ctx->section_contexts[i].nca0_romfs_ctx.directories)
-                {
-                    free(ctx->section_contexts[i].nca0_romfs_ctx.directories);
-                }
-                if (ctx->section_contexts[i].nca0_romfs_ctx.files)
-                {
-                    free(ctx->section_contexts[i].nca0_romfs_ctx.files);
-                }
-            }
             else if (ctx->section_contexts[i].type == BKTR)
             {
                 if (ctx->section_contexts[i].bktr_ctx.subsection_block)

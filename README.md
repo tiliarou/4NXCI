@@ -26,7 +26,7 @@ Windows: .\4nxci.exe [options...] <path_to_file.xci>
 Options:  
 -k, --keyset             Set keyset filepath, default filepath is ./keys.dat  
 -h, --help               Display usage  
---nodummytik             Skips creating and packing dummy tik and cert into nsps
+--dummytik               Creates dummy tik and cert
 ```
 
 ## Licensing

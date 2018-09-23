@@ -236,9 +236,6 @@ void extkeys_initialize_keyset(nca_keyset_t *keyset, FILE *f) {
                 parse_hex_key(keyset->tsec_key, value, sizeof(keyset->tsec_key));
                 matched_key = 1;
             }  else if (strcmp(key, "beta_nca0_exponent") == 0) {
-                unsigned char exponent[0x100] = {0};
-                parse_hex_key(exponent, value, sizeof(exponent));
-                pki_set_beta_nca0_exponent(exponent);
                 matched_key = 1;
             } else {
                 char test_name[0x100];
