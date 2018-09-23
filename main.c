@@ -40,9 +40,6 @@ static void usage(void)
 
 int main(int argc, char **argv)
 {
-    //Compiler nag
-    (void)argc;
-
     nxci_ctx_t tool_ctx;
     char input_name[0x200];
 

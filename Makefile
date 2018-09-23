@@ -34,7 +34,7 @@ dummy.o: dummy.h dummy_files.h
 
 cnmt.o: cnmt.h
 
-nca.o: nca.h aes.h sha.h bktr.h filepath.h types.h pfs0.h npdm.h nca0_romfs.h
+nca.o: nca.h aes.h sha.h bktr.h filepath.h types.h pfs0.h npdm.h
 
 sha.o: sha.h types.h
 

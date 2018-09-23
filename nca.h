@@ -8,7 +8,6 @@
 #include "pfs0.h"
 #include "ivfc.h"
 #include "bktr.h"
-#include "nca0_romfs.h"
 #include "cnmt.h"
 #include "nsp.h"
 
@@ -80,7 +79,6 @@ typedef struct {
     union { /* FS-specific superblock. Size = 0x138. */
         pfs0_superblock_t pfs0_superblock;
         romfs_superblock_t romfs_superblock;
-        nca0_romfs_superblock_t nca0_romfs_superblock;
         bktr_superblock_t bktr_superblock;
     };
     union {
@@ -160,7 +158,6 @@ typedef struct {
     union {
         pfs0_ctx_t pfs0_ctx;
         romfs_ctx_t romfs_ctx;
-        nca0_romfs_ctx_t nca0_romfs_ctx;
         bktr_section_ctx_t bktr_ctx;
     };
     validity_t superblock_hash_validity;
