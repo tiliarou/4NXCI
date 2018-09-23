@@ -140,7 +140,7 @@ void cnmt_gamecard_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_
 
     printf("\n");
     cnmt_create_xml(cnmt_xml_ctx, cnmt_ctx, nsp_ctx);
-    if (tool->settings.no_dummy_tik == 1)
+    if (tool->settings.dummy_tik == 0)
     {
         // Skip dummy cert and tik
         nsp_ctx->entry_count = cnmt_ctx->nca_count + 2;
@@ -252,7 +252,7 @@ void cnmt_download_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_
         dummy_create_tik(&tik_filepath, nsp_ctx);
         dummy_create_cert(&cert_filepath, nsp_ctx);
     }
-    if ((cnmt_ctx->has_rightsid == 0) && (tool->settings.no_dummy_tik == 1))
+    if ((cnmt_ctx->has_rightsid == 0) && (tool->settings.dummy_tik == 0))
     {
         // Skip dummy cert and tik
         nsp_ctx->entry_count = cnmt_ctx->nca_count + 2;

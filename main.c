@@ -33,7 +33,7 @@ static void usage(void)
         "Options:\n"
         "-k, --keyset             Set keyset filepath, default filepath is ." OS_PATH_SEPARATOR "keys.dat\n"
         "-h, --help               Display usage\n"
-        "--nodummytik             Skips creating and packing dummy tik and cert into nsps\n"
+        "--dummytik             Skips creating and packing dummy tik and cert into nsps\n"
         , USAGE_PROGRAM_NAME);
     exit(EXIT_FAILURE);
 }
@@ -72,7 +72,7 @@ int main(int argc, char **argv)
             {
                 {"keyset", 1, NULL, 'k'},
                 {"help", 0, NULL, 'h'},
-                {"nodummytik", 0, NULL, 1},
+                {"dummytik", 0, NULL, 1},
                 {NULL, 0, NULL, 0},
             };
 
@@ -89,7 +89,7 @@ int main(int argc, char **argv)
                 usage();
                 break;
             case 1:
-                tool_ctx.settings.no_dummy_tik = 1;
+                tool_ctx.settings.dummy_tik = 1;
                 break;
             default:
                 usage();

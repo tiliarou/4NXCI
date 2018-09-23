@@ -1,3 +1,6 @@
+v1.35:
+4NXCI no longer creates dummy tik and cert by default
+
 v1.30:
 Added Options
 Added option for skipping dummy cert and tik creation
