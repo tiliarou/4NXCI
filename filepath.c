@@ -3,7 +3,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
-
+#include <dirent.h>
+#include <unistd.h>
 #include "types.h"
 #include "filepath.h"
 
@@ -118,4 +119,75 @@ oschar_t *filepath_get(filepath_t *fpath) {
         return NULL;
     else
         return fpath->os_path;
+}
+
+// Original Code by asveikau https://stackoverflow.com/users/182748/asveikau
+int filepath_remove_directory(filepath_t *dir_path)
+{
+    filepath_t dir_path_cpy;
+    filepath_init(&dir_path_cpy);
+    filepath_copy(&dir_path_cpy, dir_path);
+    if (strcmp(&dir_path_cpy.char_path[strlen(dir_path_cpy.char_path) - 1], OS_PATH_SEPARATOR) != 0)
+        filepath_append(&dir_path_cpy, "");
+    DIR *d = opendir(dir_path_cpy.char_path);
+    size_t path_len = strlen(dir_path_cpy.char_path);
+    int r = -1;
+
+    if (d)
+    {
+        struct dirent *p;
+
+        r = 0;
+
+        while (!r && (p = readdir(d)))
+        {
+            int r2 = -1;
+            char *buf;
+            size_t len;
+
+            /* Skip the names "." and ".." as we don't want to recurse on them. */
+            if (!strcmp(p->d_name, ".") || !strcmp(p->d_name, ".."))
+            {
+                continue;
+            }
+
+            len = path_len + strlen(p->d_name) + 2;
+            buf = malloc(len);
+
+            if (buf)
+            {
+                struct stat statbuf;
+
+                snprintf(buf, len, "%s%s", dir_path_cpy.char_path, p->d_name);
+
+                if (!stat(buf, &statbuf))
+                {
+                    if (S_ISDIR(statbuf.st_mode))
+                    {
+                        filepath_t buf_dir;
+                        filepath_init(&buf_dir);
+                        filepath_set(&buf_dir, buf);
+                        r2 = filepath_remove_directory(&buf_dir);
+                    }
+                    else
+                    {
+                        r2 = os_deletefile(buf);
+                    }
+                }
+
+                free(buf);
+            }
+
+            r = r2;
+        }
+
+        closedir(d);
+    }
+
+    if (!r)
+    {
+        r = os_rmdir(dir_path_cpy.os_path);
+    }
+
+    return r;
 }

@@ -10,6 +10,7 @@ typedef uint16_t utf16char_t;
 typedef wchar_t oschar_t; /* utf-16 */
 
 #define os_fopen _wfopen
+#define os_deletefile remove
 #define OS_MODE_READ L"rb"
 #define OS_MODE_WRITE L"wb"
 #define OS_MODE_EDIT L"rb+"
@@ -18,6 +19,7 @@ typedef wchar_t oschar_t; /* utf-16 */
 typedef char oschar_t; /* utf-8 */
 
 #define os_fopen fopen
+#define os_deletefile unlink
 #define OS_MODE_READ "rb"
 #define OS_MODE_WRITE "wb"
 #define OS_MODE_EDIT "rb+"
@@ -40,6 +42,7 @@ void filepath_append(filepath_t *fpath, const char *format, ...);
 void filepath_append_n(filepath_t *fpath, uint32_t n, const char *format, ...);
 void filepath_set(filepath_t *fpath, const char *path);
 oschar_t *filepath_get(filepath_t *fpath);
+int filepath_remove_directory(filepath_t *dir_path);
 
 
 

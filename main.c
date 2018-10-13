@@ -29,12 +29,12 @@ cnmt_addons_ctx_t addons_cnmt_ctx;
 static void usage(void)
 {
     fprintf(stderr,
-        "Usage: %s [options...] <path_to_file.xci>\n\n"
-        "Options:\n"
-        "-k, --keyset             Set keyset filepath, default filepath is ." OS_PATH_SEPARATOR "keys.dat\n"
-        "-h, --help               Display usage\n"
-        "--dummytik             Skips creating and packing dummy tik and cert into nsps\n"
-        , USAGE_PROGRAM_NAME);
+            "Usage: %s [options...] <path_to_file.xci>\n\n"
+            "Options:\n"
+            "-k, --keyset             Set keyset filepath, default filepath is ." OS_PATH_SEPARATOR "keys.dat\n"
+            "-h, --help               Display usage\n"
+            "--dummytik             Skips creating and packing dummy tik and cert into nsps\n",
+            USAGE_PROGRAM_NAME);
     exit(EXIT_FAILURE);
 }
 
@@ -82,17 +82,17 @@ int main(int argc, char **argv)
 
         switch (c)
         {
-            case 'k':
-                filepath_set(&keypath, optarg);
-                break;
-            case 'h':
-                usage();
-                break;
-            case 1:
-                tool_ctx.settings.dummy_tik = 1;
-                break;
-            default:
-                usage();
+        case 'k':
+            filepath_set(&keypath, optarg);
+            break;
+        case 'h':
+            usage();
+            break;
+        case 1:
+            tool_ctx.settings.dummy_tik = 1;
+            break;
+        default:
+            usage();
         }
     }
 
@@ -109,7 +109,8 @@ int main(int argc, char **argv)
     else
     {
         fprintf(stderr, "Unable to open keyset '%s'\n"
-                        "Use -k or --keyset to specify your keyset path or place your keyset in ." OS_PATH_SEPARATOR "keys.dat\n", keypath.char_path);
+                        "Use -k or --keyset to specify your keyset path or place your keyset in ." OS_PATH_SEPARATOR "keys.dat\n",
+                keypath.char_path);
         return EXIT_FAILURE;
     }
 
@@ -134,6 +135,9 @@ int main(int argc, char **argv)
     filepath_init(&xci_ctx.tool_ctx->settings.secure_dir_path);
     filepath_set(&xci_ctx.tool_ctx->settings.secure_dir_path, "4nxci_extracted_xci");
 
+     // Remove existing temp directory
+    filepath_remove_directory(&xci_ctx.tool_ctx->settings.secure_dir_path);
+
     printf("\n");
 
     xci_process(&xci_ctx);
@@ -156,6 +160,8 @@ int main(int argc, char **argv)
             cnmt_gamecard_process(xci_ctx.tool_ctx, &addons_cnmt_ctx.addon_cnmt_xml[i], &addons_cnmt_ctx.addon_cnmt[i], &addon_nsps[i]);
         }
     }
+
+    filepath_remove_directory(&xci_ctx.tool_ctx->settings.secure_dir_path);
 
     printf("\nSummary:\n");
     printf("Game NSP: %s\n", application_nsp.filepath.char_path);
