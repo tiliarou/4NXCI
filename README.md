@@ -8,6 +8,7 @@
 Thanks: SciresM, Rajkosto, Switch Brew
 
 ## Usage
+
 You should load your keyset file with -k or --keyset option followed by a path to it or place your keyset file with "keys.dat" filename in the same folder as 4NXCI  
 Required keys are:  
 
