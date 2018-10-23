@@ -66,7 +66,7 @@ void cnmt_gamecard_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_
     cnmt_xml_ctx->title_id = (char *)calloc(1, 17);
     sprintf(cnmt_xml_ctx->title_id, "%016" PRIx64, cnmt_ctx->title_id);
     cnmt_xml_ctx->patch_id = (char *)calloc(1, 17);
-    sprintf(cnmt_xml_ctx->patch_id, "%016" PRIx64, cnmt_ctx->patch_id);
+    sprintf(cnmt_xml_ctx->patch_id, "%016" PRIx64, cnmt_ctx->extended_header_patch_id);
     cnmt_xml_ctx->digest = (char *)calloc(1, 65);
     hexBinaryString(cnmt_ctx->digest, 32, cnmt_xml_ctx->digest, 65);
     cnmt_xml_ctx->requiredsysversion = cnmt_ctx->requiredsysversion;
@@ -170,7 +170,7 @@ void cnmt_download_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_
     cnmt_xml_ctx->title_id = (char *)calloc(1, 17);
     sprintf(cnmt_xml_ctx->title_id, "%016" PRIx64, cnmt_ctx->title_id);
     cnmt_xml_ctx->patch_id = (char *)calloc(1, 17);
-    sprintf(cnmt_xml_ctx->patch_id, "%016" PRIx64, cnmt_ctx->patch_id);
+    sprintf(cnmt_xml_ctx->patch_id, "%016" PRIx64, cnmt_ctx->extended_header_patch_id);
     cnmt_xml_ctx->digest = (char *)calloc(1, 65);
     hexBinaryString(cnmt_ctx->digest, 32, cnmt_xml_ctx->digest, 65);
     cnmt_xml_ctx->requiredsysversion = cnmt_ctx->requiredsysversion;

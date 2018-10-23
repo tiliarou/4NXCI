@@ -1,3 +1,8 @@
+v1.36
+4NXCI now delete temp folder after the conversion is finished
+Changed cnmt patching method
+Fixed a bug cause invalid RequiredSystemVersion value in patch cnmt.xml
+
 v1.35:
 4NXCI no longer creates dummy tik and cert by default
 

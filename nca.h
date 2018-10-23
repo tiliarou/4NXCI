@@ -189,7 +189,7 @@ typedef struct nca_ctx {
 
 void nca_init(nca_ctx_t *ctx);
 void nca_saved_meta_process(nca_ctx_t *ctx, filepath_t *filepath);
-void nca_meta_context_process (cnmt_ctx_t *cnmt_ctx, nca_ctx_t *ctx, cnmt_header_t *cnmt, uint64_t digest_offset, uint64_t content_records_start_offset, filepath_t *filepath);
+void nca_meta_context_process (cnmt_ctx_t *cnmt_ctx, nca_ctx_t *ctx, cnmt_header_t *cnmt_header, cnmt_extended_header_t *cnmt_extended_header, uint64_t digest_offset, uint64_t content_records_start_offset, filepath_t *filepath);
 void nca_gamecard_process(nca_ctx_t *ctx, filepath_t *filepath, int index, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_ctx_t *cnmt_ctx, nsp_ctx_t *nsp_ctx);
 void nca_download_process(nca_ctx_t *ctx, filepath_t *filepath, int index, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_ctx_t *cnmt_ctx, nsp_ctx_t *nsp_ctx);
 int nca_decrypt_header(nca_ctx_t *ctx);
