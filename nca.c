@@ -443,7 +443,20 @@ void nca_saved_meta_process(nca_ctx_t *ctx, filepath_t *filepath)
     switch (cnmt_header.type)
     {
     case 0x80: // Application
-        nca_meta_context_process(&application_cnmt, ctx, &cnmt_header, &cnmt_extended_header, digest_offset, content_records_start_offset, filepath);
+        if (applications_cnmt_ctx.count == 0)
+        {
+            applications_cnmt_ctx.cnmt = (cnmt_ctx_t *)calloc(1, sizeof(cnmt_ctx_t));
+            applications_cnmt_ctx.cnmt_xml = (cnmt_xml_ctx_t *)calloc(1, sizeof(cnmt_xml_ctx_t));
+        }
+        else
+        {
+            applications_cnmt_ctx.cnmt = (cnmt_ctx_t *)realloc(applications_cnmt_ctx.cnmt, (applications_cnmt_ctx.count + 1) * sizeof(cnmt_ctx_t));
+            applications_cnmt_ctx.cnmt_xml = (cnmt_xml_ctx_t *)realloc(applications_cnmt_ctx.cnmt_xml, (applications_cnmt_ctx.count + 1) * sizeof(cnmt_xml_ctx_t));
+            memset(&applications_cnmt_ctx.cnmt[applications_cnmt_ctx.count], 0, sizeof(cnmt_ctx_t));
+            memset(&applications_cnmt_ctx.cnmt_xml[applications_cnmt_ctx.count], 0, sizeof(cnmt_xml_ctx_t));
+        }
+        nca_meta_context_process(&applications_cnmt_ctx.cnmt[applications_cnmt_ctx.count], ctx, &cnmt_header, &cnmt_extended_header, digest_offset, content_records_start_offset, filepath);
+        applications_cnmt_ctx.count++;
         break;
     case 0x81: // Patch
         nca_meta_context_process(&patch_cnmt, ctx, &cnmt_header, &cnmt_extended_header, digest_offset, content_records_start_offset, filepath);
@@ -452,17 +465,17 @@ void nca_saved_meta_process(nca_ctx_t *ctx, filepath_t *filepath)
         // Gamecard may contain more than one Addon Meta
         if (addons_cnmt_ctx.count == 0)
         {
-            addons_cnmt_ctx.addon_cnmt = (cnmt_ctx_t *)calloc(1, sizeof(cnmt_ctx_t));
-            addons_cnmt_ctx.addon_cnmt_xml = (cnmt_xml_ctx_t *)calloc(1, sizeof(cnmt_xml_ctx_t));
+            addons_cnmt_ctx.cnmt = (cnmt_ctx_t *)calloc(1, sizeof(cnmt_ctx_t));
+            addons_cnmt_ctx.cnmt_xml = (cnmt_xml_ctx_t *)calloc(1, sizeof(cnmt_xml_ctx_t));
         }
         else
         {
-            addons_cnmt_ctx.addon_cnmt = (cnmt_ctx_t *)realloc(addons_cnmt_ctx.addon_cnmt, (addons_cnmt_ctx.count + 1) * sizeof(cnmt_ctx_t));
-            addons_cnmt_ctx.addon_cnmt_xml = (cnmt_xml_ctx_t *)realloc(addons_cnmt_ctx.addon_cnmt_xml, (addons_cnmt_ctx.count + 1) * sizeof(cnmt_xml_ctx_t));
-            memset(&addons_cnmt_ctx.addon_cnmt[addons_cnmt_ctx.count], 0, sizeof(cnmt_ctx_t));
-            memset(&addons_cnmt_ctx.addon_cnmt_xml[addons_cnmt_ctx.count], 0, sizeof(cnmt_xml_ctx_t));
+            addons_cnmt_ctx.cnmt = (cnmt_ctx_t *)realloc(addons_cnmt_ctx.cnmt, (addons_cnmt_ctx.count + 1) * sizeof(cnmt_ctx_t));
+            addons_cnmt_ctx.cnmt_xml = (cnmt_xml_ctx_t *)realloc(addons_cnmt_ctx.cnmt_xml, (addons_cnmt_ctx.count + 1) * sizeof(cnmt_xml_ctx_t));
+            memset(&addons_cnmt_ctx.cnmt[addons_cnmt_ctx.count], 0, sizeof(cnmt_ctx_t));
+            memset(&addons_cnmt_ctx.cnmt_xml[addons_cnmt_ctx.count], 0, sizeof(cnmt_xml_ctx_t));
         }
-        nca_meta_context_process(&addons_cnmt_ctx.addon_cnmt[addons_cnmt_ctx.count], ctx, &cnmt_header, &cnmt_extended_header, digest_offset, content_records_start_offset, filepath);
+        nca_meta_context_process(&addons_cnmt_ctx.cnmt[addons_cnmt_ctx.count], ctx, &cnmt_header, &cnmt_extended_header, digest_offset, content_records_start_offset, filepath);
         addons_cnmt_ctx.count++;
         break;
     default:

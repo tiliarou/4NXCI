@@ -86,9 +86,9 @@ typedef struct {
 
 typedef struct {
     uint8_t count;
-    cnmt_ctx_t *addon_cnmt;
-    cnmt_xml_ctx_t *addon_cnmt_xml;
-} cnmt_addons_ctx_t;
+    cnmt_ctx_t *cnmt;
+    cnmt_xml_ctx_t *cnmt_xml;
+} cnmts_ctx_t;
 
 void cnmt_create_xml(cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_ctx_t *cnmt_ctx, nsp_ctx_t *nsp_ctx);
 
@@ -98,10 +98,9 @@ void cnmt_download_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_
 char *cnmt_get_content_type(uint8_t type);
 char *cnmt_get_title_type(cnmt_ctx_t *cnmt_ctx);
 
-extern cnmt_ctx_t application_cnmt;
 extern cnmt_ctx_t patch_cnmt;
-extern cnmt_xml_ctx_t application_cnmt_xml;
 extern cnmt_xml_ctx_t patch_cnmt_xml;
-extern cnmt_addons_ctx_t addons_cnmt_ctx;
+extern cnmts_ctx_t applications_cnmt_ctx;
+extern cnmts_ctx_t addons_cnmt_ctx;
 
 #endif

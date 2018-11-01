@@ -20,10 +20,11 @@ cnmt_xml_ctx_t application_cnmt_xml;
 cnmt_xml_ctx_t patch_cnmt_xml;
 cnmt_ctx_t application_cnmt;
 cnmt_ctx_t patch_cnmt;
-nsp_ctx_t application_nsp;
+nsp_ctx_t *application_nsps;
+cnmts_ctx_t applications_cnmt_ctx;
 nsp_ctx_t patch_nsp;
 nsp_ctx_t *addon_nsps;
-cnmt_addons_ctx_t addons_cnmt_ctx;
+cnmts_ctx_t addons_cnmt_ctx;
 
 // Print Usage
 static void usage(void)
@@ -51,9 +52,10 @@ int main(int argc, char **argv)
     memset(&patch_cnmt, 0, sizeof(cnmt_ctx_t));
     memset(&application_cnmt_xml, 0, sizeof(cnmt_xml_ctx_t));
     memset(&patch_cnmt_xml, 0, sizeof(cnmt_xml_ctx_t));
-    memset(&application_nsp, 0, sizeof(nsp_ctx_t));
+    memset(&applications_cnmt_ctx, 0, sizeof(cnmts_ctx_t));
+    memset(&application_nsps, 0, sizeof(application_nsps));
     memset(&patch_nsp, 0, sizeof(nsp_ctx_t));
-    memset(&addons_cnmt_ctx, 0, sizeof(cnmt_addons_ctx_t));
+    memset(&addons_cnmt_ctx, 0, sizeof(cnmts_ctx_t));
     memset(&addon_nsps, 0, sizeof(addon_nsps));
 
     filepath_t keypath;
@@ -135,7 +137,7 @@ int main(int argc, char **argv)
     filepath_init(&xci_ctx.tool_ctx->settings.secure_dir_path);
     filepath_set(&xci_ctx.tool_ctx->settings.secure_dir_path, "4nxci_extracted_xci");
 
-     // Remove existing temp directory
+    // Remove existing temp directory
     filepath_remove_directory(&xci_ctx.tool_ctx->settings.secure_dir_path);
 
     printf("\n");
@@ -143,8 +145,13 @@ int main(int argc, char **argv)
     xci_process(&xci_ctx);
 
     // Process ncas in cnmts
-    printf("===> Processing Application Metadata:\n");
-    cnmt_gamecard_process(xci_ctx.tool_ctx, &application_cnmt_xml, &application_cnmt, &application_nsp);
+    application_nsps = (nsp_ctx_t *)calloc(1, sizeof(nsp_ctx_t) * applications_cnmt_ctx.count);
+    printf("===> Processing %u Application(s):\n", applications_cnmt_ctx.count);
+    for (int apppc = 0; apppc < applications_cnmt_ctx.count; apppc++)
+    {
+        printf("===> Processing Application %i Metadata:\n", apppc + 1);
+        cnmt_gamecard_process(xci_ctx.tool_ctx, &applications_cnmt_ctx.cnmt_xml[apppc], &applications_cnmt_ctx.cnmt[apppc], &application_nsps[apppc]);
+    }
     if (patch_cnmt.title_id != 0)
     {
         printf("===> Processing Patch Metadata:\n");
@@ -154,23 +161,24 @@ int main(int argc, char **argv)
     {
         addon_nsps = (nsp_ctx_t *)calloc(1, sizeof(nsp_ctx_t) * addons_cnmt_ctx.count);
         printf("===> Processing %u Addon(s):\n", addons_cnmt_ctx.count);
-        for (int i = 0; i < addons_cnmt_ctx.count; i++)
+        for (int addpc = 0; addpc < addons_cnmt_ctx.count; addpc++)
         {
-            printf("===> Processing AddOn %i Metadata:\n", i + 1);
-            cnmt_gamecard_process(xci_ctx.tool_ctx, &addons_cnmt_ctx.addon_cnmt_xml[i], &addons_cnmt_ctx.addon_cnmt[i], &addon_nsps[i]);
+            printf("===> Processing AddOn %i Metadata:\n", addpc + 1);
+            cnmt_gamecard_process(xci_ctx.tool_ctx, &addons_cnmt_ctx.cnmt_xml[addpc], &addons_cnmt_ctx.cnmt[addpc], &addon_nsps[addpc]);
         }
     }
 
     filepath_remove_directory(&xci_ctx.tool_ctx->settings.secure_dir_path);
 
     printf("\nSummary:\n");
-    printf("Game NSP: %s\n", application_nsp.filepath.char_path);
+    for (int gsum = 0; gsum < applications_cnmt_ctx.count; gsum++)
+        printf("Game NSP %i: %s\n", gsum + 1, application_nsps[gsum].filepath.char_path);
     if (patch_cnmt.title_id != 0)
         printf("Update NSP: %s\n", patch_nsp.filepath.char_path);
     if (addons_cnmt_ctx.count != 0)
     {
-        for (int i2 = 0; i2 < addons_cnmt_ctx.count; i2++)
-            printf("DLC NSP %i: %s\n", i2 + 1, addon_nsps[i2].filepath.char_path);
+        for (int dlcsum = 0; dlcsum < addons_cnmt_ctx.count; dlcsum++)
+            printf("DLC NSP %i: %s\n", dlcsum + 1, addon_nsps[dlcsum].filepath.char_path);
     }
 
     fclose(tool_ctx.file);

@@ -30,7 +30,7 @@ typedef struct {
 
 void nsp_create(nsp_ctx_t *nsp_ctx);
 
-extern nsp_ctx_t application_nsp;
+extern nsp_ctx_t *application_nsps;
 extern nsp_ctx_t patch_nsp;
 extern nsp_ctx_t *addon_nsps;
 
