@@ -59,6 +59,7 @@ int hfs0_saved_nca_process(filepath_t *filepath, nxci_ctx_t *tool)
                 return 0;
         }
         nca_saved_meta_process(&nca_ctx,filepath);
+        fclose(nca_ctx.file);
         nca_free_section_contexts(&nca_ctx);
     }
     return 1;
