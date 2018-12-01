@@ -61,7 +61,7 @@ int main(int argc, char **argv)
     filepath_t keypath;
 
     filepath_init(&keypath);
-    pki_initialize_keyset(&tool_ctx.settings.keyset, KEYSET_RETAIL);
+    pki_initialize_keyset(&tool_ctx.settings.keyset);
     // Default keyset filepath
     filepath_set(&keypath, "keys.dat");
 

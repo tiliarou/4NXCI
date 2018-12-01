@@ -1,5 +1,5 @@
 v2.01
-Fixed a bug cause metadata nca remain open in 4NXCI and removing temp directory fails
+Fixed a bug cause metadata ncas remain open in 4NXCI and removing temp directory fails
 
 v2.00
 4NXCI now supports XCIs with more than one Application Metadata (Gamecards with more than one game)
