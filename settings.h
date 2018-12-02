@@ -56,10 +56,6 @@ typedef struct {
 typedef struct {
     uint8_t dummy_tik;
     nca_keyset_t keyset;
-    filepath_t section_paths[4];
-    filepath_t section_dir_paths[4];
-    override_filepath_t out_dir_path;
-    filepath_t hfs0_dir_path;
     filepath_t secure_dir_path;
 } nxci_settings_t;
 

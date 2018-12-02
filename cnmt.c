@@ -161,10 +161,6 @@ void cnmt_download_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_
 {
     cnmt_ctx->has_rightsid = 0;
 
-    // Skipping delta fragments
-    if (cnmt_ctx->type == 0x81 && cnmt_ctx->nca_count > applications_cnmt_ctx.cnmt[0].nca_count)
-        cnmt_ctx->nca_count = applications_cnmt_ctx.cnmt[0].nca_count;
-
     // Set xml meta values
     cnmt_xml_ctx->contents = (cnmt_xml_content_t *)malloc((cnmt_ctx->nca_count + 1) * sizeof(cnmt_xml_content_t)); // ncas + meta nca
     cnmt_xml_ctx->title_id = (char *)calloc(1, 17);

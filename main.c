@@ -16,13 +16,11 @@
 /* 4NXCI by The-4n
    Based on hactool by SciresM
    */
-cnmt_xml_ctx_t application_cnmt_xml;
-cnmt_xml_ctx_t patch_cnmt_xml;
-cnmt_ctx_t application_cnmt;
-cnmt_ctx_t patch_cnmt;
+
 nsp_ctx_t *application_nsps;
 cnmts_ctx_t applications_cnmt_ctx;
-nsp_ctx_t patch_nsp;
+nsp_ctx_t *patch_nsps;
+cnmts_ctx_t patches_cnmt_ctx;
 nsp_ctx_t *addon_nsps;
 cnmts_ctx_t addons_cnmt_ctx;
 
@@ -34,7 +32,7 @@ static void usage(void)
             "Options:\n"
             "-k, --keyset             Set keyset filepath, default filepath is ." OS_PATH_SEPARATOR "keys.dat\n"
             "-h, --help               Display usage\n"
-            "--dummytik             Skips creating and packing dummy tik and cert into nsps\n",
+            "--dummytik               Skips creating and packing dummy tik and cert into nsps\n",
             USAGE_PROGRAM_NAME);
     exit(EXIT_FAILURE);
 }
@@ -48,13 +46,10 @@ int main(int argc, char **argv)
 
     memset(&tool_ctx, 0, sizeof(tool_ctx));
     memset(input_name, 0, sizeof(input_name));
-    memset(&application_cnmt, 0, sizeof(cnmt_ctx_t));
-    memset(&patch_cnmt, 0, sizeof(cnmt_ctx_t));
-    memset(&application_cnmt_xml, 0, sizeof(cnmt_xml_ctx_t));
-    memset(&patch_cnmt_xml, 0, sizeof(cnmt_xml_ctx_t));
     memset(&applications_cnmt_ctx, 0, sizeof(cnmts_ctx_t));
     memset(&application_nsps, 0, sizeof(application_nsps));
-    memset(&patch_nsp, 0, sizeof(nsp_ctx_t));
+    memset(&patches_cnmt_ctx, 0, sizeof(cnmts_ctx_t));
+    memset(&patch_nsps, 0, sizeof(patch_nsps));
     memset(&addons_cnmt_ctx, 0, sizeof(cnmts_ctx_t));
     memset(&addon_nsps, 0, sizeof(addon_nsps));
 
@@ -152,10 +147,16 @@ int main(int argc, char **argv)
         printf("===> Processing Application %i Metadata:\n", apppc + 1);
         cnmt_gamecard_process(xci_ctx.tool_ctx, &applications_cnmt_ctx.cnmt_xml[apppc], &applications_cnmt_ctx.cnmt[apppc], &application_nsps[apppc]);
     }
-    if (patch_cnmt.title_id != 0)
+    if (patches_cnmt_ctx.count != 0)
     {
-        printf("===> Processing Patch Metadata:\n");
-        cnmt_download_process(xci_ctx.tool_ctx, &patch_cnmt_xml, &patch_cnmt, &patch_nsp);
+        patch_nsps = (nsp_ctx_t *)calloc(1, sizeof(nsp_ctx_t) * patches_cnmt_ctx.count);
+        printf("===> Processing %u Patch(es):\n", patches_cnmt_ctx.count);
+        for (int patchpc = 0; patchpc < patches_cnmt_ctx.count; patchpc++)
+        {
+            printf("===> Processing Patch %i Metadata:\n", patchpc + 1);
+            cnmt_download_process(xci_ctx.tool_ctx, &patches_cnmt_ctx.cnmt_xml[patchpc], &patches_cnmt_ctx.cnmt[patchpc], &patch_nsps[patchpc]);
+        }
+        
     }
     if (addons_cnmt_ctx.count != 0)
     {
@@ -173,8 +174,11 @@ int main(int argc, char **argv)
     printf("\nSummary:\n");
     for (int gsum = 0; gsum < applications_cnmt_ctx.count; gsum++)
         printf("Game NSP %i: %s\n", gsum + 1, application_nsps[gsum].filepath.char_path);
-    if (patch_cnmt.title_id != 0)
-        printf("Update NSP: %s\n", patch_nsp.filepath.char_path);
+    if (patches_cnmt_ctx.count !=0)
+    {
+        for (int patchsum = 0; patchsum < patches_cnmt_ctx.count; patchsum++)
+            printf("Update NSP: %i: %s\n", patchsum + 1, patch_nsps[patchsum].filepath.char_path);
+    }
     if (addons_cnmt_ctx.count != 0)
     {
         for (int dlcsum = 0; dlcsum < addons_cnmt_ctx.count; dlcsum++)

@@ -356,12 +356,12 @@ void nca_cnmt_process(nca_ctx_t *ctx, cnmt_ctx_t *cnmt_ctx)
 
 void nca_meta_context_process(cnmt_ctx_t *cnmt_ctx, nca_ctx_t *ctx, cnmt_header_t *cnmt_header, cnmt_extended_header_t *cnmt_extended_header, uint64_t digest_offset, uint64_t content_records_start_offset, filepath_t *filepath)
 {
+    cnmt_ctx->nca_count = 0;
     cnmt_ctx->type = cnmt_header->type;
     cnmt_ctx->title_id = cnmt_header->title_id;
     cnmt_ctx->extended_header_patch_id = cnmt_extended_header->patch_title_id;
     cnmt_ctx->title_version = cnmt_header->title_version;
     cnmt_ctx->requiredsysversion = cnmt_extended_header->required_system_version;
-    cnmt_ctx->nca_count = cnmt_header->content_entry_count;
     cnmt_ctx->extended_header_size = cnmt_header->extended_header_size;
     if (ctx->header.crypto_type2 > ctx->header.crypto_type)
         cnmt_ctx->keygen_min = ctx->header.crypto_type2;
@@ -369,11 +369,18 @@ void nca_meta_context_process(cnmt_ctx_t *cnmt_ctx, nca_ctx_t *ctx, cnmt_header_
         cnmt_ctx->keygen_min = ctx->header.crypto_type;
 
     // Read content and decrypt records
-    cnmt_ctx->cnmt_content_records = (cnmt_content_record_t *)malloc(cnmt_ctx->nca_count * sizeof(cnmt_content_record_t));
-    for (int i = 0; i < cnmt_ctx->nca_count; i++)
+    cnmt_ctx->cnmt_content_records = (cnmt_content_record_t *)malloc(sizeof(cnmt_content_record_t));
+    for (int i = 0; i < cnmt_header->content_entry_count; i++)
     {
+        cnmt_content_record_t temp_content_record;
         nca_section_fseek(&ctx->section_contexts[0], content_records_start_offset + (i * sizeof(cnmt_content_record_t)));
-        nca_section_fread(&ctx->section_contexts[0], &cnmt_ctx->cnmt_content_records[i], sizeof(cnmt_content_record_t));
+        nca_section_fread(&ctx->section_contexts[0], &temp_content_record, sizeof(cnmt_content_record_t));
+        if (temp_content_record.type != 0x6)    // Skip DeltaFragment
+        {
+            memcpy(&cnmt_ctx->cnmt_content_records[cnmt_ctx->nca_count], &temp_content_record, sizeof(cnmt_content_record_t));
+            cnmt_ctx->nca_count++;
+            cnmt_ctx->cnmt_content_records = (cnmt_content_record_t *)realloc(cnmt_ctx->cnmt_content_records, (cnmt_ctx->nca_count + 1) * sizeof(cnmt_content_record_t));
+        }
     }
 
     // Get Digest, last 32 bytes of PFS0
@@ -459,7 +466,21 @@ void nca_saved_meta_process(nca_ctx_t *ctx, filepath_t *filepath)
         applications_cnmt_ctx.count++;
         break;
     case 0x81: // Patch
-        nca_meta_context_process(&patch_cnmt, ctx, &cnmt_header, &cnmt_extended_header, digest_offset, content_records_start_offset, filepath);
+        // Gamecard may contain more than one Patch Meta
+        if (patches_cnmt_ctx.count == 0)
+        {
+            patches_cnmt_ctx.cnmt = (cnmt_ctx_t *)calloc(1, sizeof(cnmt_ctx_t));
+            patches_cnmt_ctx.cnmt_xml = (cnmt_xml_ctx_t *)calloc(1, sizeof(cnmt_xml_ctx_t));
+        }
+                else
+        {
+            patches_cnmt_ctx.cnmt = (cnmt_ctx_t *)realloc(patches_cnmt_ctx.cnmt, (patches_cnmt_ctx.count + 1) * sizeof(cnmt_ctx_t));
+            patches_cnmt_ctx.cnmt_xml = (cnmt_xml_ctx_t *)realloc(patches_cnmt_ctx.cnmt_xml, (patches_cnmt_ctx.count + 1) * sizeof(cnmt_xml_ctx_t));
+            memset(&patches_cnmt_ctx.cnmt[patches_cnmt_ctx.count], 0, sizeof(cnmt_ctx_t));
+            memset(&patches_cnmt_ctx.cnmt_xml[patches_cnmt_ctx.count], 0, sizeof(cnmt_xml_ctx_t));
+        }
+        nca_meta_context_process(&patches_cnmt_ctx.cnmt[patches_cnmt_ctx.count], ctx, &cnmt_header, &cnmt_extended_header, digest_offset, content_records_start_offset, filepath);
+        patches_cnmt_ctx.count++;
         break;
     case 0x82: // AddOn
         // Gamecard may contain more than one Addon Meta

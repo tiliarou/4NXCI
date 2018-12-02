@@ -93,12 +93,6 @@ void hfs0_save_file(hfs0_ctx_t *ctx, uint32_t i, filepath_t *dirpath) {
 void hfs0_save(hfs0_ctx_t *ctx) {
     /* Extract to directory. */
     filepath_t *dirpath = NULL;
-    if (ctx->tool_ctx->file_type == FILETYPE_HFS0 && ctx->tool_ctx->settings.out_dir_path.enabled) {
-        dirpath = &ctx->tool_ctx->settings.out_dir_path.path;
-    }
-    if (dirpath == NULL || dirpath->valid != VALIDITY_VALID) {
-        dirpath = &ctx->tool_ctx->settings.hfs0_dir_path;
-    }
     if (dirpath != NULL && dirpath->valid == VALIDITY_VALID) {
         os_makedir(dirpath->os_path);
         for (uint32_t i = 0; i < ctx->header->num_files; i++) {
