@@ -32,7 +32,9 @@ static void usage(void)
             "Options:\n"
             "-k, --keyset             Set keyset filepath, default filepath is ." OS_PATH_SEPARATOR "keys.dat\n"
             "-h, --help               Display usage\n"
-            "--dummytik               Skips creating and packing dummy tik and cert into nsps\n",
+            "--tempdir                Set temporary directory path\n"
+            "--outdir                 Set output directory path\n"
+            "--dummytik               Skip creating and packing dummy tik and cert into nsps\n",
             USAGE_PROGRAM_NAME);
     exit(EXIT_FAILURE);
 }
@@ -60,6 +62,10 @@ int main(int argc, char **argv)
     // Default keyset filepath
     filepath_set(&keypath, "keys.dat");
 
+    // Hardcode secure partition save path to "4nxci_extracted_nsp" directory
+    filepath_init(&tool_ctx.settings.secure_dir_path);
+    filepath_set(&tool_ctx.settings.secure_dir_path, "4nxci_extracted_xci");
+
     // Parse options
     while (1)
     {
@@ -70,6 +76,8 @@ int main(int argc, char **argv)
                 {"keyset", 1, NULL, 'k'},
                 {"help", 0, NULL, 'h'},
                 {"dummytik", 0, NULL, 1},
+                {"tempdir", 1, NULL, 2},
+                {"outdir", 1, NULL, 3},
                 {NULL, 0, NULL, 0},
             };
 
@@ -87,6 +95,13 @@ int main(int argc, char **argv)
             break;
         case 1:
             tool_ctx.settings.dummy_tik = 1;
+            break;
+        case 2:
+            filepath_set(&tool_ctx.settings.secure_dir_path, optarg);
+            break;
+        case 3:
+            filepath_init(&tool_ctx.settings.out_dir_path);
+            filepath_set(&tool_ctx.settings.out_dir_path, optarg);
             break;
         default:
             usage();
@@ -128,12 +143,12 @@ int main(int argc, char **argv)
     xci_ctx.file = tool_ctx.file;
     xci_ctx.tool_ctx = &tool_ctx;
 
-    // Hardcode secure partition save path to "4nxci_extracted_nsp" directory
-    filepath_init(&xci_ctx.tool_ctx->settings.secure_dir_path);
-    filepath_set(&xci_ctx.tool_ctx->settings.secure_dir_path, "4nxci_extracted_xci");
-
     // Remove existing temp directory
     filepath_remove_directory(&xci_ctx.tool_ctx->settings.secure_dir_path);
+
+    // Create output directory if it's valid
+    if (xci_ctx.tool_ctx->settings.out_dir_path.valid == VALIDITY_VALID)
+        os_makedir(xci_ctx.tool_ctx->settings.out_dir_path.os_path);
 
     printf("\n");
 

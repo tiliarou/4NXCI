@@ -84,7 +84,13 @@ void cnmt_gamecard_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_
     strncpy(nsp_filename, cnmt_xml_ctx->title_id, 16);
     strcat(nsp_filename, ".nsp");
     filepath_init(&nsp_ctx->filepath);
-    filepath_set(&nsp_ctx->filepath, nsp_filename);
+    if (tool->settings.out_dir_path.valid == VALIDITY_VALID)
+    {
+        filepath_copy(&nsp_ctx->filepath, &tool->settings.out_dir_path);
+        filepath_append(&nsp_ctx->filepath, "%s", nsp_filename);
+    }
+    else
+        filepath_set(&nsp_ctx->filepath, nsp_filename);
     free(nsp_filename);
 
     // nsp entries count = nca counts + .tik + .cert + .cnmmt.xml + .cnmt.nca
@@ -184,7 +190,13 @@ void cnmt_download_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_
     strncpy(nsp_filename, cnmt_xml_ctx->title_id, 16);
     strcat(nsp_filename, ".nsp");
     filepath_init(&nsp_ctx->filepath);
-    filepath_set(&nsp_ctx->filepath, nsp_filename);
+    if (tool->settings.out_dir_path.valid == VALIDITY_VALID)
+    {
+        filepath_copy(&nsp_ctx->filepath, &tool->settings.out_dir_path);
+        filepath_append(&nsp_ctx->filepath, "%s", nsp_filename);
+    }
+    else
+        filepath_set(&nsp_ctx->filepath, nsp_filename);
     free(nsp_filename);
 
     // nsp entries count = nca counts + .tik + .cert + .cnmmt.xml + .cnmt.nca

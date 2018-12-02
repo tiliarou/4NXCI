@@ -57,6 +57,7 @@ typedef struct {
     uint8_t dummy_tik;
     nca_keyset_t keyset;
     filepath_t secure_dir_path;
+    filepath_t out_dir_path;
 } nxci_settings_t;
 
 enum hactool_file_type
