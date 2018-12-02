@@ -1,7 +1,7 @@
 v2.10
 Added support for keygeneration 7
 Added options for settings temp and output directory patches
-Added support for gamcards with multiple updates
+Added support for gamecards with multiple updates
 
 v2.01
 Fixed a bug cause metadata ncas remain open in 4NXCI and removing temp directory fails
