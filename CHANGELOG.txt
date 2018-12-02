@@ -1,6 +1,6 @@
 v2.10
 Added support for keygeneration 7
-Added options for settings temp and output directory patches
+Added options for setting temp and output directory paths
 Added support for gamecards with multiple updates
 
 v2.01
