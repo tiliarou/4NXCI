@@ -171,108 +171,97 @@ void nca_exefs_npdm_process(nca_ctx_t *ctx)
     nca_decrypt_key_area(ctx);
 
     // Looking for main.npdm / META
-    for (int i = 0; i < 4; i++)
+    ctx->section_contexts[0].aes = new_aes_ctx(ctx->decrypted_keys[2], 16, AES_MODE_CTR);
+    ctx->section_contexts[0].offset = media_to_real(ctx->header.section_entries[0].media_start_offset);
+    ctx->section_contexts[0].sector_ofs = 0;
+    ctx->section_contexts[0].file = ctx->file;
+    ctx->section_contexts[0].crypt_type = CRYPT_CTR;
+    ctx->section_contexts[0].header = &ctx->header.fs_headers[0];
+    // Calculate counter for section decryption
+    uint64_t ofs = ctx->section_contexts[0].offset >> 4;
+    for (unsigned int j = 0; j < 0x8; j++)
     {
-        if (ctx->header.section_entries[i].media_start_offset)
+        ctx->section_contexts[0].ctr[j] = ctx->section_contexts[0].header->section_ctr[0x8 - j - 1];
+        ctx->section_contexts[0].ctr[0x10 - j - 1] = (unsigned char)(ofs & 0xFF);
+        ofs >>= 8;
+    }
+
+    // Read and decrypt PFS0 header
+    pfs0_start_offset = ctx->header.fs_headers[0].pfs0_superblock.pfs0_offset;
+    nca_section_fseek(&ctx->section_contexts[0], pfs0_start_offset);
+    nca_section_fread(&ctx->section_contexts[0], &pfs0_header, sizeof(pfs0_header_t));
+    // Read and decrypt file entry table
+    file_entry_table_offset = pfs0_start_offset + sizeof(pfs0_header_t);
+    file_entry_table_size = sizeof(pfs0_file_entry_t) * pfs0_header.num_files;
+    pfs0_file_entry_t *pfs0_file_entry_table = (pfs0_file_entry_t *)malloc(file_entry_table_size);
+    nca_section_fseek(&ctx->section_contexts[0], file_entry_table_offset);
+    nca_section_fread(&ctx->section_contexts[0], pfs0_file_entry_table, file_entry_table_size);
+
+    // Looking for META magic
+    uint32_t magic = 0;
+    raw_data_offset = file_entry_table_offset + file_entry_table_size + pfs0_header.string_table_size;
+    for (unsigned int i2 = 0; i2 < pfs0_header.num_files; i2++)
+    {
+        file_raw_data_offset = raw_data_offset + pfs0_file_entry_table[i2].offset;
+        nca_section_fseek(&ctx->section_contexts[0], file_raw_data_offset);
+        nca_section_fread(&ctx->section_contexts[0], &magic, sizeof(magic));
+        if (magic == MAGIC_META)
         {
-            if (ctx->header.fs_headers[i].partition_type == PARTITION_PFS0 && ctx->header.fs_headers[i].fs_type == FS_TYPE_PFS0 && ctx->header.fs_headers[i].crypt_type == CRYPT_CTR)
-            {
-                ctx->section_contexts[i].aes = new_aes_ctx(ctx->decrypted_keys[2], 16, AES_MODE_CTR);
-                ctx->section_contexts[i].offset = media_to_real(ctx->header.section_entries[i].media_start_offset);
-                ctx->section_contexts[i].sector_ofs = 0;
-                ctx->section_contexts[i].file = ctx->file;
-                ctx->section_contexts[i].crypt_type = CRYPT_CTR;
-                ctx->section_contexts[i].header = &ctx->header.fs_headers[i];
-                // Calculate counter for section decryption
-                uint64_t ofs = ctx->section_contexts[i].offset >> 4;
-                for (unsigned int j = 0; j < 0x8; j++)
-                {
-                    ctx->section_contexts[i].ctr[j] = ctx->section_contexts[i].header->section_ctr[0x8 - j - 1];
-                    ctx->section_contexts[i].ctr[0x10 - j - 1] = (unsigned char)(ofs & 0xFF);
-                    ofs >>= 8;
-                }
+            // Read and decrypt npdm header
+            meta_offset = file_raw_data_offset;
+            nca_section_fseek(&ctx->section_contexts[0], meta_offset);
+            nca_section_fread(&ctx->section_contexts[0], &npdm_header, sizeof(npdm_t));
 
-                // Read and decrypt PFS0 header
-                pfs0_start_offset = ctx->header.fs_headers[i].pfs0_superblock.pfs0_offset;
-                nca_section_fseek(&ctx->section_contexts[i], pfs0_start_offset);
-                nca_section_fread(&ctx->section_contexts[i], &pfs0_header, sizeof(pfs0_header_t));
-                // Read and decrypt file entry table
-                file_entry_table_offset = pfs0_start_offset + sizeof(pfs0_header_t);
-                file_entry_table_size = sizeof(pfs0_file_entry_t) * pfs0_header.num_files;
-                pfs0_file_entry_t *pfs0_file_entry_table = (pfs0_file_entry_t *)malloc(file_entry_table_size);
-                nca_section_fseek(&ctx->section_contexts[i], file_entry_table_offset);
-                nca_section_fread(&ctx->section_contexts[i], pfs0_file_entry_table, file_entry_table_size);
+            // Mix some water with acid (Corrupt ACID sig)
+            acid_offset = meta_offset + npdm_header.acid_offset;
+            uint8_t acid_sig_byte = 0;
+            nca_section_fseek(&ctx->section_contexts[0], acid_offset);
+            nca_section_fread(&ctx->section_contexts[0], &acid_sig_byte, 1);
+            if (acid_sig_byte == 0xFF)
+                acid_sig_byte -= 0x01;
+            else
+                acid_sig_byte += 0x01;
+            nca_section_fwrite(&ctx->section_contexts[0], &acid_sig_byte, 0x01, acid_offset);
 
-                // Looking for META magic
-                uint32_t magic = 0;
-                raw_data_offset = file_entry_table_offset + file_entry_table_size + pfs0_header.string_table_size;
-                for (unsigned int i2 = 0; i2 < pfs0_header.num_files; i2++)
-                {
-                    file_raw_data_offset = raw_data_offset + pfs0_file_entry_table[i2].offset;
-                    nca_section_fseek(&ctx->section_contexts[i], file_raw_data_offset);
-                    nca_section_fread(&ctx->section_contexts[i], &magic, sizeof(magic));
-                    if (magic == MAGIC_META)
-                    {
-                        // Read and decrypt npdm header
-                        meta_offset = file_raw_data_offset;
-                        nca_section_fseek(&ctx->section_contexts[i], meta_offset);
-                        nca_section_fread(&ctx->section_contexts[i], &npdm_header, sizeof(npdm_t));
+            // Calculate new block hash
+            block_hash_table_offset = (0x20 * ((acid_offset - ctx->header.fs_headers[0].pfs0_superblock.pfs0_offset) / ctx->header.fs_headers[0].pfs0_superblock.block_size)) + ctx->header.fs_headers[0].pfs0_superblock.hash_table_offset;
+            block_start_offset = (((acid_offset - ctx->header.fs_headers[0].pfs0_superblock.pfs0_offset) / ctx->header.fs_headers[0].pfs0_superblock.block_size) * ctx->header.fs_headers[0].pfs0_superblock.block_size) + ctx->header.fs_headers[0].pfs0_superblock.pfs0_offset;
+            unsigned char *block_data = (unsigned char *)malloc(ctx->header.fs_headers[0].pfs0_superblock.block_size);
+            unsigned char *block_hash = (unsigned char *)malloc(0x20);
+            nca_section_fseek(&ctx->section_contexts[0], block_start_offset);
+            nca_section_fread(&ctx->section_contexts[0], block_data, ctx->header.fs_headers[0].pfs0_superblock.block_size);
+            sha_ctx_t *pfs0_sha_ctx = new_sha_ctx(HASH_TYPE_SHA256, 0);
+            sha_update(pfs0_sha_ctx, block_data, ctx->header.fs_headers[0].pfs0_superblock.block_size);
+            sha_get_hash(pfs0_sha_ctx, block_hash);
+            nca_section_fwrite(&ctx->section_contexts[0], block_hash, 0x20, block_hash_table_offset);
+            free(block_hash);
+            free(block_data);
+            free_sha_ctx(pfs0_sha_ctx);
 
-                        // Mix some water with acid (Corrupt ACID sig)
-                        acid_offset = meta_offset + npdm_header.acid_offset;
-                        uint8_t acid_sig_byte = 0;
-                        nca_section_fseek(&ctx->section_contexts[i], acid_offset);
-                        nca_section_fread(&ctx->section_contexts[i], &acid_sig_byte, 1);
-                        if (acid_sig_byte == 0xFF)
-                            acid_sig_byte -= 0x01;
-                        else
-                            acid_sig_byte += 0x01;
-                        nca_section_fwrite(&ctx->section_contexts[i], &acid_sig_byte, 0x01, acid_offset);
+            // Calculate PFS0 sueperblock hash
+            sha_ctx_t *hash_table_ctx = new_sha_ctx(HASH_TYPE_SHA256, 0);
+            unsigned char *hash_table = (unsigned char *)malloc(ctx->header.fs_headers[0].pfs0_superblock.hash_table_size);
+            unsigned char *master_hash = (unsigned char *)malloc(0x20);
+            nca_section_fseek(&ctx->section_contexts[0], ctx->header.fs_headers[0].pfs0_superblock.hash_table_offset);
+            nca_section_fread(&ctx->section_contexts[0], hash_table, ctx->header.fs_headers[0].pfs0_superblock.hash_table_size);
+            sha_update(hash_table_ctx, hash_table, ctx->header.fs_headers[0].pfs0_superblock.hash_table_size);
+            sha_get_hash(hash_table_ctx, master_hash);
+            memcpy(&ctx->header.fs_headers[0].pfs0_superblock.master_hash, master_hash, 0x20);
+            free(master_hash);
+            free(hash_table);
+            free_sha_ctx(hash_table_ctx);
 
-                        // Calculate new block hash
-                        block_hash_table_offset = (0x20 * ((acid_offset - ctx->header.fs_headers[i].pfs0_superblock.pfs0_offset) / ctx->header.fs_headers[i].pfs0_superblock.block_size)) + ctx->header.fs_headers[i].pfs0_superblock.hash_table_offset;
-                        block_start_offset = (((acid_offset - ctx->header.fs_headers[i].pfs0_superblock.pfs0_offset) / ctx->header.fs_headers[i].pfs0_superblock.block_size) * ctx->header.fs_headers[i].pfs0_superblock.block_size) + ctx->header.fs_headers[i].pfs0_superblock.pfs0_offset;
-                        unsigned char *block_data = (unsigned char *)malloc(ctx->header.fs_headers[i].pfs0_superblock.block_size);
-                        unsigned char *block_hash = (unsigned char *)malloc(0x20);
-                        nca_section_fseek(&ctx->section_contexts[i], block_start_offset);
-                        nca_section_fread(&ctx->section_contexts[i], block_data, ctx->header.fs_headers[i].pfs0_superblock.block_size);
-                        sha_ctx_t *pfs0_sha_ctx = new_sha_ctx(HASH_TYPE_SHA256, 0);
-                        sha_update(pfs0_sha_ctx, block_data, ctx->header.fs_headers[i].pfs0_superblock.block_size);
-                        sha_get_hash(pfs0_sha_ctx, block_hash);
-                        nca_section_fwrite(&ctx->section_contexts[i], block_hash, 0x20, block_hash_table_offset);
-                        free(block_hash);
-                        free(block_data);
-                        free_sha_ctx(pfs0_sha_ctx);
-
-                        // Calculate PFS0 sueperblock hash
-                        sha_ctx_t *hash_table_ctx = new_sha_ctx(HASH_TYPE_SHA256, 0);
-                        unsigned char *hash_table = (unsigned char *)malloc(ctx->header.fs_headers[i].pfs0_superblock.hash_table_size);
-                        unsigned char *master_hash = (unsigned char *)malloc(0x20);
-                        nca_section_fseek(&ctx->section_contexts[i], ctx->header.fs_headers[i].pfs0_superblock.hash_table_offset);
-                        nca_section_fread(&ctx->section_contexts[i], hash_table, ctx->header.fs_headers[i].pfs0_superblock.hash_table_size);
-                        sha_update(hash_table_ctx, hash_table, ctx->header.fs_headers[i].pfs0_superblock.hash_table_size);
-                        sha_get_hash(hash_table_ctx, master_hash);
-                        memcpy(&ctx->header.fs_headers[i].pfs0_superblock.master_hash, master_hash, 0x20);
-                        free(master_hash);
-                        free(hash_table);
-                        free_sha_ctx(hash_table_ctx);
-
-                        // Calculate section hash
-                        unsigned char *section_hash = (unsigned char *)malloc(0x20);
-                        sha_ctx_t *section_ctx = new_sha_ctx(HASH_TYPE_SHA256, 0);
-                        sha_update(section_ctx, &ctx->header.fs_headers[i], 0x200);
-                        sha_get_hash(section_ctx, section_hash);
-                        memcpy(&ctx->header.section_hashes[i], section_hash, 0x20);
-                        free(section_hash);
-                        free_sha_ctx(section_ctx);
-
-                        break;
-                    }
-                }
-                free(pfs0_file_entry_table);
-            }
+            // Calculate section hash
+            unsigned char *section_hash = (unsigned char *)malloc(0x20);
+            sha_ctx_t *section_ctx = new_sha_ctx(HASH_TYPE_SHA256, 0);
+            sha_update(section_ctx, &ctx->header.fs_headers[0], 0x200);
+            sha_get_hash(section_ctx, section_hash);
+            memcpy(&ctx->header.section_hashes[0], section_hash, 0x20);
+            free(section_hash);
+            free_sha_ctx(section_ctx);
         }
     }
+    free(pfs0_file_entry_table);
 }
 
 // Modify cnmt
@@ -375,7 +364,7 @@ void nca_meta_context_process(cnmt_ctx_t *cnmt_ctx, nca_ctx_t *ctx, cnmt_header_
         cnmt_content_record_t temp_content_record;
         nca_section_fseek(&ctx->section_contexts[0], content_records_start_offset + (i * sizeof(cnmt_content_record_t)));
         nca_section_fread(&ctx->section_contexts[0], &temp_content_record, sizeof(cnmt_content_record_t));
-        if (temp_content_record.type != 0x6)    // Skip DeltaFragment
+        if (temp_content_record.type != 0x6) // Skip DeltaFragment
         {
             memcpy(&cnmt_ctx->cnmt_content_records[cnmt_ctx->nca_count], &temp_content_record, sizeof(cnmt_content_record_t));
             cnmt_ctx->nca_count++;
@@ -472,7 +461,7 @@ void nca_saved_meta_process(nca_ctx_t *ctx, filepath_t *filepath)
             patches_cnmt_ctx.cnmt = (cnmt_ctx_t *)calloc(1, sizeof(cnmt_ctx_t));
             patches_cnmt_ctx.cnmt_xml = (cnmt_xml_ctx_t *)calloc(1, sizeof(cnmt_xml_ctx_t));
         }
-                else
+        else
         {
             patches_cnmt_ctx.cnmt = (cnmt_ctx_t *)realloc(patches_cnmt_ctx.cnmt, (patches_cnmt_ctx.count + 1) * sizeof(cnmt_ctx_t));
             patches_cnmt_ctx.cnmt_xml = (cnmt_xml_ctx_t *)realloc(patches_cnmt_ctx.cnmt_xml, (patches_cnmt_ctx.count + 1) * sizeof(cnmt_xml_ctx_t));
