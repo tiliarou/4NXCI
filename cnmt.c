@@ -5,7 +5,6 @@
 #include <libgen.h>
 #include "nca.h"
 #include "cnmt.h"
-#include "dummy.h"
 
 /* Create .cnmt.xml
  The process is done without xml libs cause i don't want to add more dependency for now
@@ -43,16 +42,16 @@ void cnmt_create_xml(cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_ctx_t *cnmt_ctx, nsp_ctx
     fprintf(file, "</ContentMeta>");
 
     // Set file size for creating nsp
-    nsp_ctx->nsp_entry[2].filesize = (uint64_t)ftello64(file);
+    nsp_ctx->nsp_entry[0].filesize = (uint64_t)ftello64(file);
 
     // Set file path for creating nsp
-    filepath_init(&nsp_ctx->nsp_entry[2].filepath);
-    nsp_ctx->nsp_entry[2].filepath = cnmt_xml_ctx->filepath;
+    filepath_init(&nsp_ctx->nsp_entry[0].filepath);
+    nsp_ctx->nsp_entry[0].filepath = cnmt_xml_ctx->filepath;
 
     // Set nsp filename
-    nsp_ctx->nsp_entry[2].nsp_filename = (char *)calloc(1, 42);
-    strcpy(nsp_ctx->nsp_entry[2].nsp_filename, cnmt_xml_ctx->contents[cnmt_ctx->nca_count].id);
-    strcat(nsp_ctx->nsp_entry[2].nsp_filename, ".cnmt.xml");
+    nsp_ctx->nsp_entry[0].nsp_filename = (char *)calloc(1, 42);
+    strcpy(nsp_ctx->nsp_entry[0].nsp_filename, cnmt_xml_ctx->contents[cnmt_ctx->nca_count].id);
+    strcat(nsp_ctx->nsp_entry[0].nsp_filename, ".cnmt.xml");
 
     fclose(file);
 }
@@ -93,8 +92,9 @@ void cnmt_gamecard_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_
         filepath_set(&nsp_ctx->filepath, nsp_filename);
     free(nsp_filename);
 
-    // nsp entries count = nca counts + .tik + .cert + .cnmmt.xml + .cnmt.nca
-    nsp_ctx->nsp_entry = (nsp_entry_t *)calloc(1, sizeof(nsp_entry_t) * (cnmt_ctx->nca_count + 4));
+    // nsp entries count = nca counts + .cnmmt.xml + .cnmt.nca
+    nsp_ctx->entry_count = cnmt_ctx->nca_count + 2;
+    nsp_ctx->nsp_entry = (nsp_entry_t *)calloc(1, sizeof(nsp_entry_t) * (cnmt_ctx->nca_count + 2));
 
     // Process NCA files
     nca_ctx_t nca_ctx;
@@ -146,19 +146,6 @@ void cnmt_gamecard_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_
 
     printf("\n");
     cnmt_create_xml(cnmt_xml_ctx, cnmt_ctx, nsp_ctx);
-    if (tool->settings.dummy_tik == 0)
-    {
-        // Skip dummy cert and tik
-        nsp_ctx->entry_count = cnmt_ctx->nca_count + 2;
-        nsp_ctx->nsp_entry = nsp_ctx->nsp_entry + 2;
-    }
-    else
-    {
-        dummy_create_tik(&tik_filepath, nsp_ctx);
-        dummy_create_cert(&cert_filepath, nsp_ctx);
-        // .tik + .cert + .cnmt.xml + ncas . cnmt.nca
-        nsp_ctx->entry_count = cnmt_ctx->nca_count + 4;
-    }
     printf("\n");
     nsp_create(nsp_ctx);
 }
@@ -200,6 +187,7 @@ void cnmt_download_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_
     free(nsp_filename);
 
     // nsp entries count = nca counts + .tik + .cert + .cnmmt.xml + .cnmt.nca
+    nsp_ctx->entry_count = cnmt_ctx->nca_count + 4;
     nsp_ctx->nsp_entry = (nsp_entry_t *)calloc(1, sizeof(nsp_entry_t) * (cnmt_ctx->nca_count + 4));
 
     // Process NCA files
@@ -255,22 +243,6 @@ void cnmt_download_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_
 
     printf("\n");
     cnmt_create_xml(cnmt_xml_ctx, cnmt_ctx, nsp_ctx);
-    if (cnmt_ctx->has_rightsid == 0)
-    {
-        dummy_create_tik(&tik_filepath, nsp_ctx);
-        dummy_create_cert(&cert_filepath, nsp_ctx);
-    }
-    if ((cnmt_ctx->has_rightsid == 0) && (tool->settings.dummy_tik == 0))
-    {
-        // Skip dummy cert and tik
-        nsp_ctx->entry_count = cnmt_ctx->nca_count + 2;
-        nsp_ctx->nsp_entry = nsp_ctx->nsp_entry + 2;
-    }
-    else
-    {
-        // .tik + .cert + .cnmt.xml + ncas . cnmt.nca
-        nsp_ctx->entry_count = cnmt_ctx->nca_count + 4;
-    }
     printf("\n");
     nsp_create(nsp_ctx);
 }

@@ -75,7 +75,7 @@ int main(int argc, char **argv)
             {
                 {"keyset", 1, NULL, 'k'},
                 {"help", 0, NULL, 'h'},
-                {"dummytik", 0, NULL, 1},
+                //{"", 0, NULL, 1},
                 {"tempdir", 1, NULL, 2},
                 {"outdir", 1, NULL, 3},
                 {NULL, 0, NULL, 0},
@@ -93,9 +93,8 @@ int main(int argc, char **argv)
         case 'h':
             usage();
             break;
-        case 1:
-            tool_ctx.settings.dummy_tik = 1;
-            break;
+        //case 1:
+        //    break;
         case 2:
             filepath_set(&tool_ctx.settings.secure_dir_path, optarg);
             break;

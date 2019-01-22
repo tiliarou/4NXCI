@@ -13,7 +13,7 @@ all:
 .c.o:
 	$(CC) $(INCLUDE) -c $(CFLAGS) -o $@ $<
 
-4nxci: sha.o aes.o extkeys.o pki.o hfs0.o utils.o nsp.o nca.o dummy.o cnmt.o xci.o main.o filepath.o ConvertUTF.o
+4nxci: sha.o aes.o extkeys.o pki.o hfs0.o utils.o nsp.o nca.o cnmt.o xci.o main.o filepath.o ConvertUTF.o
 	$(CC) -o $@ $^ $(LDFLAGS) -L $(LIBDIR)
 
 aes.o: aes.h types.h
@@ -29,8 +29,6 @@ main.o: main.c pki.h types.h version.h
 pki.o: pki.h aes.h types.h
 
 nsp.o: nsp.h
-
-dummy.o: dummy.h dummy_files.h
 
 cnmt.o: cnmt.h
 

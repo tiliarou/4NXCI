@@ -587,11 +587,11 @@ void nca_gamecard_process(nca_ctx_t *ctx, filepath_t *filepath, int index, cnmt_
     free(hash_hex);
     free(hash_result);
 
-    // 0: tik, 1: cert, 2: cnmt.xml
-    index += 3;
+    // + cnmt.xml
+    index += 1;
 
     // Set filesize for creating nsp
-    nsp_ctx->nsp_entry[index].filesize = cnmt_xml_ctx->contents[index - 3].size;
+    nsp_ctx->nsp_entry[index].filesize = cnmt_xml_ctx->contents[index - 1].size;
 
     // Set filepath for creating nsp
     filepath_init(&nsp_ctx->nsp_entry[index].filepath);
@@ -601,13 +601,13 @@ void nca_gamecard_process(nca_ctx_t *ctx, filepath_t *filepath, int index, cnmt_
     if (content_type != 1)
     {
         nsp_ctx->nsp_entry[index].nsp_filename = (char *)calloc(1, 37);
-        strncpy(nsp_ctx->nsp_entry[index].nsp_filename, cnmt_xml_ctx->contents[index - 3].id, 0x20);
+        strncpy(nsp_ctx->nsp_entry[index].nsp_filename, cnmt_xml_ctx->contents[index - 1].id, 0x20);
         strcat(nsp_ctx->nsp_entry[index].nsp_filename, ".nca");
     }
     else // Meta nca
     {
         nsp_ctx->nsp_entry[index].nsp_filename = (char *)calloc(1, 42);
-        strncpy(nsp_ctx->nsp_entry[index].nsp_filename, cnmt_xml_ctx->contents[index - 3].id, 0x20);
+        strncpy(nsp_ctx->nsp_entry[index].nsp_filename, cnmt_xml_ctx->contents[index - 1].id, 0x20);
         strcat(nsp_ctx->nsp_entry[index].nsp_filename, ".cnmt.nca");
     }
 }
@@ -647,51 +647,51 @@ void nca_download_process(nca_ctx_t *ctx, filepath_t *filepath, int index, cnmt_
     if (ctx->has_rights_id)
     {
         cnmt_xml_ctx->contents[index].keygeneration = (unsigned char)ctx->header.rights_id[15];
-        if (ctx->has_rights_id && ((nsp_ctx->nsp_entry[0].filepath.char_path[0] == 0) || (nsp_ctx->nsp_entry[1].filepath.char_path[0] == 0)))
+        if (ctx->has_rights_id && ((nsp_ctx->nsp_entry[1].filepath.char_path[0] == 0) || (nsp_ctx->nsp_entry[2].filepath.char_path[0] == 0)))
         {
             // Convert rightsid to hex string
             char *rights_id = (char *)calloc(1, 33);
             hexBinaryString((unsigned char *)ctx->header.rights_id, 16, rights_id, 33);
 
             // Set tik file path for creating nsp
-            filepath_init(&nsp_ctx->nsp_entry[0].filepath);
-            filepath_copy(&nsp_ctx->nsp_entry[0].filepath, &ctx->tool_ctx->settings.secure_dir_path);
-            filepath_append(&nsp_ctx->nsp_entry[0].filepath, "%s.tik", rights_id); // tik filename is: rightsid + .tik
-
-            // Set cert file path for creating nsp
             filepath_init(&nsp_ctx->nsp_entry[1].filepath);
             filepath_copy(&nsp_ctx->nsp_entry[1].filepath, &ctx->tool_ctx->settings.secure_dir_path);
-            filepath_append(&nsp_ctx->nsp_entry[1].filepath, "%s.cert", rights_id); // tik filename is: rightsid + .tik
+            filepath_append(&nsp_ctx->nsp_entry[1].filepath, "%s.tik", rights_id); // tik filename is: rightsid + .tik
+
+            // Set cert file path for creating nsp
+            filepath_init(&nsp_ctx->nsp_entry[2].filepath);
+            filepath_copy(&nsp_ctx->nsp_entry[2].filepath, &ctx->tool_ctx->settings.secure_dir_path);
+            filepath_append(&nsp_ctx->nsp_entry[2].filepath, "%s.cert", rights_id); // tik filename is: rightsid + .tik
             free(rights_id);
 
             // Set tik filename for creating nsp
-            nsp_ctx->nsp_entry[0].nsp_filename = (char *)calloc(1, 37);
-            strncpy(nsp_ctx->nsp_entry[0].nsp_filename, basename(nsp_ctx->nsp_entry[0].filepath.char_path), 36);
+            nsp_ctx->nsp_entry[1].nsp_filename = (char *)calloc(1, 37);
+            strncpy(nsp_ctx->nsp_entry[1].nsp_filename, basename(nsp_ctx->nsp_entry[1].filepath.char_path), 36);
 
             // Set cert filename for creating nsp
-            nsp_ctx->nsp_entry[1].nsp_filename = (char *)calloc(1, 38);
-            strncpy(nsp_ctx->nsp_entry[1].nsp_filename, basename(nsp_ctx->nsp_entry[1].filepath.char_path), 37);
+            nsp_ctx->nsp_entry[2].nsp_filename = (char *)calloc(1, 38);
+            strncpy(nsp_ctx->nsp_entry[2].nsp_filename, basename(nsp_ctx->nsp_entry[2].filepath.char_path), 37);
 
             // Set tik file size for creating nsp
             FILE *tik_file;
-            if (!(tik_file = os_fopen(nsp_ctx->nsp_entry[0].filepath.os_path, OS_MODE_READ)))
+            if (!(tik_file = os_fopen(nsp_ctx->nsp_entry[1].filepath.os_path, OS_MODE_READ)))
             {
                 fprintf(stderr, "unable to open %s: %s\n", nsp_ctx->nsp_entry[0].filepath.char_path, strerror(errno));
                 exit(EXIT_FAILURE);
             }
             fseeko64(tik_file, 0, SEEK_END);
-            nsp_ctx->nsp_entry[0].filesize = (uint64_t)ftello64(tik_file);
+            nsp_ctx->nsp_entry[1].filesize = (uint64_t)ftello64(tik_file);
             fclose(tik_file);
 
             // Set cert file size for creating nsp
             FILE *cert_file;
-            if (!(cert_file = os_fopen(nsp_ctx->nsp_entry[1].filepath.os_path, OS_MODE_READ)))
+            if (!(cert_file = os_fopen(nsp_ctx->nsp_entry[2].filepath.os_path, OS_MODE_READ)))
             {
                 fprintf(stderr, "unable to open %s: %s\n", nsp_ctx->nsp_entry[1].filepath.char_path, strerror(errno));
                 exit(EXIT_FAILURE);
             }
             fseeko64(cert_file, 0, SEEK_END);
-            nsp_ctx->nsp_entry[1].filesize = (uint64_t)ftello64(cert_file);
+            nsp_ctx->nsp_entry[2].filesize = (uint64_t)ftello64(cert_file);
             fclose(cert_file);
 
             cnmt_xml_ctx->keygen_min = (unsigned char)ctx->header.rights_id[15];
