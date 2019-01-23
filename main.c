@@ -188,7 +188,7 @@ int main(int argc, char **argv)
         }
     }
 
-    //filepath_remove_directory(&xci_ctx.tool_ctx->settings.secure_dir_path);
+    filepath_remove_directory(&xci_ctx.tool_ctx->settings.secure_dir_path);
 
     printf("\nSummary:\n");
     for (int gsum = 0; gsum < applications_cnmt_ctx.count; gsum++)
