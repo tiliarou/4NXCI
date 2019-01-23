@@ -30,7 +30,7 @@ Options:
 -t, --tempdir            Set temporary directory path  
 -o, --outdir             Set output directory path  
 -r, --rename             Use Titlename instead of Titleid in nsp name  
---keepncaid              Keep current ncas ids
+--keepncaid              Keep current ncas ids  
 ```
 
 ## Licensing
