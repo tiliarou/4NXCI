@@ -32,9 +32,10 @@ static void usage(void)
             "Options:\n"
             "-k, --keyset             Set keyset filepath, default filepath is ." OS_PATH_SEPARATOR "keys.dat\n"
             "-h, --help               Display usage\n"
-            "--tempdir                Set temporary directory path\n"
-            "--outdir                 Set output directory path\n"
-            "--dummytik               Skip creating and packing dummy tik and cert into nsps\n",
+            "-t, --tempdir            Set temporary directory path\n"
+            "-o, --outdir             Set output directory path\n"
+            "-r, --rename             Use Titlename instead of Titleid in nsp name\n"
+            "--keepncaid              Keep current ncas ids\n",
             USAGE_PROGRAM_NAME);
     exit(EXIT_FAILURE);
 }
@@ -75,13 +76,14 @@ int main(int argc, char **argv)
             {
                 {"keyset", 1, NULL, 'k'},
                 {"help", 0, NULL, 'h'},
-                //{"", 0, NULL, 1},
-                {"tempdir", 1, NULL, 2},
-                {"outdir", 1, NULL, 3},
+                {"rename", 0, NULL, 'r'},
+                {"tempdir", 1, NULL, 't'},
+                {"outdir", 1, NULL, 'o'},
+                {"keepncaid", 0, NULL, 1},
                 {NULL, 0, NULL, 0},
             };
 
-        c = getopt_long(argc, argv, "k:h", long_options, &option_index);
+        c = getopt_long(argc, argv, "k:t:o:hr", long_options, &option_index);
         if (c == -1)
             break;
 
@@ -93,14 +95,18 @@ int main(int argc, char **argv)
         case 'h':
             usage();
             break;
-        //case 1:
-        //    break;
-        case 2:
+        case 'r':
+            tool_ctx.settings.titlename = 1;
+            break;
+        case 't':
             filepath_set(&tool_ctx.settings.secure_dir_path, optarg);
             break;
-        case 3:
+        case 'o':
             filepath_init(&tool_ctx.settings.out_dir_path);
             filepath_set(&tool_ctx.settings.out_dir_path, optarg);
+            break;
+        case 1:
+            tool_ctx.settings.keepncaid = 1;
             break;
         default:
             usage();
@@ -170,7 +176,6 @@ int main(int argc, char **argv)
             printf("===> Processing Patch %i Metadata:\n", patchpc + 1);
             cnmt_download_process(xci_ctx.tool_ctx, &patches_cnmt_ctx.cnmt_xml[patchpc], &patches_cnmt_ctx.cnmt[patchpc], &patch_nsps[patchpc]);
         }
-        
     }
     if (addons_cnmt_ctx.count != 0)
     {
@@ -183,12 +188,12 @@ int main(int argc, char **argv)
         }
     }
 
-    filepath_remove_directory(&xci_ctx.tool_ctx->settings.secure_dir_path);
+    //filepath_remove_directory(&xci_ctx.tool_ctx->settings.secure_dir_path);
 
     printf("\nSummary:\n");
     for (int gsum = 0; gsum < applications_cnmt_ctx.count; gsum++)
         printf("Game NSP %i: %s\n", gsum + 1, application_nsps[gsum].filepath.char_path);
-    if (patches_cnmt_ctx.count !=0)
+    if (patches_cnmt_ctx.count != 0)
     {
         for (int patchsum = 0; patchsum < patches_cnmt_ctx.count; patchsum++)
             printf("Update NSP: %i: %s\n", patchsum + 1, patch_nsps[patchsum].filepath.char_path);

@@ -7,6 +7,7 @@
 #include "pki.h"
 #include "sha.h"
 #include "rsa.h"
+#include "romfs.h"
 #include "utils.h"
 #include "extkeys.h"
 #include "filepath.h"
@@ -177,6 +178,7 @@ void nca_exefs_npdm_process(nca_ctx_t *ctx)
     ctx->section_contexts[0].file = ctx->file;
     ctx->section_contexts[0].crypt_type = CRYPT_CTR;
     ctx->section_contexts[0].header = &ctx->header.fs_headers[0];
+
     // Calculate counter for section decryption
     uint64_t ofs = ctx->section_contexts[0].offset >> 4;
     for (unsigned int j = 0; j < 0x8; j++)
@@ -262,6 +264,58 @@ void nca_exefs_npdm_process(nca_ctx_t *ctx)
         }
     }
     free(pfs0_file_entry_table);
+}
+
+// Looks for title info
+void nca_control_nacp_process(nca_ctx_t *ctx, nsp_ctx_t *nsp_ctx)
+{
+    // filepath = titleid_control.romfs
+    filepath_t control_romfs_path;
+    filepath_init(&control_romfs_path);
+    filepath_copy(&control_romfs_path, &ctx->tool_ctx->settings.secure_dir_path);
+    filepath_append(&control_romfs_path, "%016" PRIx64 "_control.romfs", ctx->header.title_id);
+    printf("Extracting RomFS to %s\n", control_romfs_path.char_path);
+
+    // Extract control.nacp
+
+    FILE *fl;
+    if (!(fl = os_fopen(control_romfs_path.os_path, "wb+")))
+    {
+        fprintf(stderr, "unable to create %s: %s\n", control_romfs_path.os_path, strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+    nca_decrypt_key_area(ctx);
+
+    ctx->section_contexts[0].aes = new_aes_ctx(ctx->decrypted_keys[2], 16, AES_MODE_CTR);
+    ctx->section_contexts[0].offset = media_to_real(ctx->header.section_entries[0].media_start_offset);
+    ctx->section_contexts[0].sector_ofs = 0;
+    ctx->section_contexts[0].file = ctx->file;
+    ctx->section_contexts[0].crypt_type = CRYPT_CTR;
+    ctx->section_contexts[0].header = &ctx->header.fs_headers[0];
+    
+    // Calculate counter for section decryption
+    uint64_t ofs = ctx->section_contexts[0].offset >> 4;
+    for (unsigned int j = 0; j < 0x8; j++)
+    {
+        ctx->section_contexts[0].ctr[j] = ctx->section_contexts[0].header->section_ctr[0x8 - j - 1];
+        ctx->section_contexts[0].ctr[0x10 - j - 1] = (unsigned char)(ofs & 0xFF);
+        ofs >>= 8;
+    }
+
+    // Seek to RomFS, decrypt and save it
+    char *romfs = (char *)malloc(ctx->header.fs_headers[0].romfs_superblock.ivfc_header.level_headers[5].hash_data_size);
+    nca_section_fseek(&ctx->section_contexts[0], ctx->header.fs_headers[0].romfs_superblock.ivfc_header.level_headers[5].logical_offset);
+    nca_section_fread(&ctx->section_contexts[0], romfs, ctx->header.fs_headers[0].romfs_superblock.ivfc_header.level_headers[5].hash_data_size);
+    fwrite(romfs, ctx->header.fs_headers[0].romfs_superblock.ivfc_header.level_headers[5].hash_data_size, 1, fl);
+
+    fseeko64(fl, 0, SEEK_SET);
+    romfs_ctx_t romfs_ctx;
+    memset(&romfs_ctx, 0, sizeof(romfs_ctx_t));
+    romfs_ctx.file = fl;
+    romfs_process(&romfs_ctx, nsp_ctx);
+
+    fclose(fl);
 }
 
 // Modify cnmt
@@ -529,6 +583,8 @@ void nca_gamecard_process(nca_ctx_t *ctx, filepath_t *filepath, int index, cnmt_
         nca_exefs_npdm_process(ctx);
     else if (content_type == 1) // Meta nca
         nca_cnmt_process(ctx, cnmt_ctx);
+    else if (content_type == 2 && ctx->tool_ctx->settings.titlename == 1) // Control nca
+        nca_control_nacp_process(ctx, nsp_ctx);
 
     // Set distrbution type to "System"
     ctx->header.distribution = 0;
@@ -571,7 +627,8 @@ void nca_gamecard_process(nca_ctx_t *ctx, filepath_t *filepath, int index, cnmt_
     if (content_type != 1)
     {
         memcpy(cnmt_ctx->cnmt_content_records[index].hash, hash_result, 32);
-        memcpy(cnmt_ctx->cnmt_content_records[index].ncaid, hash_result, 16);
+        if (ctx->tool_ctx->settings.keepncaid != 1)
+            memcpy(cnmt_ctx->cnmt_content_records[index].ncaid, hash_result, 16);
     }
     free_sha_ctx(sha_ctx);
 
@@ -582,7 +639,10 @@ void nca_gamecard_process(nca_ctx_t *ctx, filepath_t *filepath, int index, cnmt_
     // Set hash and id for xml meta, id = first 16 bytes of hash
     strncpy(cnmt_xml_ctx->contents[index].hash, hash_hex, 64);
     cnmt_xml_ctx->contents[index].hash[64] = '\0';
-    strncpy(cnmt_xml_ctx->contents[index].id, hash_hex, 32);
+    if (content_type == 1 && ctx->tool_ctx->settings.keepncaid == 1)
+        strncpy(cnmt_xml_ctx->contents[index].id, basename(cnmt_ctx->meta_filepath.char_path), 32);
+    else
+        strncpy(cnmt_xml_ctx->contents[index].id, hash_hex, 32);
     cnmt_xml_ctx->contents[index].id[32] = '\0';
     free(hash_hex);
     free(hash_result);
@@ -705,6 +765,10 @@ void nca_download_process(nca_ctx_t *ctx, filepath_t *filepath, int index, cnmt_
         else
             cnmt_xml_ctx->contents[index].keygeneration = ctx->header.crypto_type;
     }
+
+    // Process control nca
+    if (content_type == 2 && ctx->tool_ctx->settings.titlename == 1)
+        nca_control_nacp_process(ctx, nsp_ctx);
 
     char *hash_hex = (char *)calloc(1, 65);
     if (content_type != 1) // Meta nca lacks of content records

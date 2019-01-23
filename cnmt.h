@@ -98,8 +98,6 @@ void cnmt_download_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_
 char *cnmt_get_content_type(uint8_t type);
 char *cnmt_get_title_type(cnmt_ctx_t *cnmt_ctx);
 
-//extern cnmt_ctx_t patch_cnmt;
-//extern cnmt_xml_ctx_t patch_cnmt_xml;
 extern cnmts_ctx_t applications_cnmt_ctx;
 extern cnmts_ctx_t patches_cnmt_ctx;
 extern cnmts_ctx_t addons_cnmt_ctx;

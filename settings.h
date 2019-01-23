@@ -57,6 +57,8 @@ typedef struct {
     nca_keyset_t keyset;
     filepath_t secure_dir_path;
     filepath_t out_dir_path;
+    uint8_t titlename;
+    uint8_t keepncaid;
 } nxci_settings_t;
 
 enum hactool_file_type

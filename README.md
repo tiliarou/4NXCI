@@ -27,9 +27,10 @@ Windows: .\4nxci.exe [options...] <path_to_file.xci>
 Options:  
 -k, --keyset             Set keyset filepath, default filepath is ./keys.dat  
 -h, --help               Display usage  
---tempdir                Set temporary directory path  
---outdir                 Set output directory path  
---dummytik               Create dummy tik and cert
+-t, --tempdir            Set temporary directory path  
+-o, --outdir             Set output directory path  
+-r, --rename             Use Titlename instead of Titleid in nsp name  
+--keepncaid              Keep current ncas ids
 ```
 
 ## Licensing

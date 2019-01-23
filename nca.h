@@ -7,6 +7,7 @@
 #include "aes.h"
 #include "pfs0.h"
 #include "ivfc.h"
+#include "romfs.h"
 #include "bktr.h"
 #include "cnmt.h"
 #include "nsp.h"
@@ -199,6 +200,7 @@ void nca_decrypt_key_area(nca_ctx_t *ctx);
 void nca_cnmt_process(nca_ctx_t *ctx, cnmt_ctx_t *cnmt_ctx);
 void nca_update_ctr(unsigned char *ctr, uint64_t ofs);
 void nca_exefs_npdm_process(nca_ctx_t *ctx);
+void nca_control_nacp_process(nca_ctx_t *ctx, nsp_ctx_t *nsp_ctx);
 void nca_process_pfs0_section(nca_section_ctx_t *ctx);
 void nca_section_fseek(nca_section_ctx_t *ctx, uint64_t offset);
 size_t nca_section_fread(nca_section_ctx_t *ctx, void *buffer, size_t count);
