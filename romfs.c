@@ -19,7 +19,7 @@ static void romfs_visit_file(romfs_ctx_t *ctx, uint32_t file_offset, filepath_t 
         filepath_append_n(cur_path, entry->name_size, "%s", entry->name);
     }
 
-    if (strcmp(cur_path->char_path, "/control.nacp") == 0)
+    if ((strcmp(cur_path->char_path, "/control.nacp") == 0) || (strcmp(cur_path->char_path, "\\control.nacp") == 0))
     {
         // Read control.nacp
         uint64_t current_pos = ftello64(ctx->file);
