@@ -281,7 +281,7 @@ void nca_control_nacp_process(nca_ctx_t *ctx, nsp_ctx_t *nsp_ctx)
     FILE *fl;
     if (!(fl = os_fopen(control_romfs_path.os_path, OS_MODE_WRITE_EDIT)))
     {
-        fprintf(stderr, "unable to create %s: %s\n", control_romfs_path.os_path, strerror(errno));
+        fprintf(stderr, "unable to create %s: %s\n", control_romfs_path.char_path, strerror(errno));
         exit(EXIT_FAILURE);
     }
 
