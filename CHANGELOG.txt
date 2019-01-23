@@ -1,3 +1,10 @@
+v3.00
+Added 4NXCI-GUI
+Added --rename option for using titlename instead of titleid for naming nsps
+Added --keepncaid option for keeping original nca ids in cnmt
+4NXCI now only looks for section 0 in program nca for main.npdm
+Removed dummy tik and cert option
+
 v2.10
 Added support for keygeneration 7
 Added options for setting temp and output directory paths
