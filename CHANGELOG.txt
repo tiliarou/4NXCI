@@ -1,3 +1,6 @@
+v3.01
+4NXCI now escape non-numerical and non-alphabetic characters in titlename
+
 v3.00
 Added 4NXCI-GUI
 Added --rename option for using titlename instead of titleid for naming nsps

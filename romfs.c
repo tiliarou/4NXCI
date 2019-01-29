@@ -33,11 +33,22 @@ static void romfs_visit_file(romfs_ctx_t *ctx, uint32_t file_offset, filepath_t 
         }
 
         // Fill nsp_ctx titlename and version
-        for (int i=0; i < 16; i++)
+        char *forbidden_chars[10] = {"/", "\\", "?", "%%", "*", ":", "|", "\"", ">", "<"};
+        for (int i = 0; i < 16; i++)
         {
             if (nacp.Title[i].Name[0] != 0x00)
             {
-                strcpy(nsp_ctx->title_name, nacp.Title[i].Name);
+                for (unsigned int j = 0; j < strlen(nacp.Title[i].Name); j++)
+                {
+                    int found_forbidden_char = 0;
+                    for (int k = 0; k < 10; k++)
+                    {
+                        if (strncmp(&nacp.Title[i].Name[j], forbidden_chars[k], 1) == 0)
+                            found_forbidden_char = 1;
+                    }
+                    if (found_forbidden_char == 0)
+                        strncat(nsp_ctx->title_name, &nacp.Title[i].Name[j], 1);
+                }
                 break;
             }
         }
