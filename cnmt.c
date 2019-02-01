@@ -58,8 +58,6 @@ void cnmt_create_xml(cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_ctx_t *cnmt_ctx, nsp_ctx
 
 void cnmt_gamecard_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_ctx_t *cnmt_ctx, nsp_ctx_t *nsp_ctx)
 {
-    cnmt_ctx->has_rightsid = 0;
-
     // Set xml meta values
     cnmt_xml_ctx->contents = (cnmt_xml_content_t *)malloc((cnmt_ctx->nca_count + 1) * sizeof(cnmt_xml_content_t)); // ncas + meta nca
     cnmt_xml_ctx->title_id = (char *)calloc(1, 17);
@@ -254,6 +252,15 @@ void cnmt_download_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_
     free(nsp_filename);
 
     printf("\n");
+
+    // Custom XCIs may not contain tik and cert
+    if (cnmt_ctx->has_rightsid == 0)
+    {
+        memcpy(&nsp_ctx->nsp_entry[2], &nsp_ctx->nsp_entry[0], sizeof(nsp_entry_t));
+        nsp_ctx->nsp_entry += 2;
+        nsp_ctx->entry_count -= 2;
+    }
+
     nsp_create(nsp_ctx);
 }
 

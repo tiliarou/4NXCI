@@ -1,5 +1,5 @@
 v3.01
-4NXCI now escape non-numerical and non-alphabetic characters in titlename
+4NXCI now escapes special file path characters in titlename
 
 v3.00
 Added 4NXCI-GUI

@@ -493,6 +493,7 @@ void nca_saved_meta_process(nca_ctx_t *ctx, filepath_t *filepath)
     switch (cnmt_header.type)
     {
     case 0x80: // Application
+        // Gamecard may contain more than one Application Meta
         if (applications_cnmt_ctx.count == 0)
         {
             applications_cnmt_ctx.cnmt = (cnmt_ctx_t *)calloc(1, sizeof(cnmt_ctx_t));
@@ -799,6 +800,7 @@ void nca_download_process(nca_ctx_t *ctx, filepath_t *filepath, int index, cnmt_
 
         hexBinaryString(meta_hash, 32, hash_hex, 65);
     }
+    fclose(ctx->file);
 
     // Set hash and id for xml meta, id = first 16 bytes of hash
     strncpy(cnmt_xml_ctx->contents[index].hash, hash_hex, 64);
