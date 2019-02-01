@@ -15,6 +15,7 @@ using System.IO;
 using System.ComponentModel;
 using System.Collections;
 using System.Globalization;
+using Path = System.IO.Path;
 
 namespace hacPack_GUI
 {
@@ -111,17 +112,43 @@ namespace hacPack_GUI
                 txtbox.Text = browse_dialog.SelectedPath;
         }
 
+        private void browse_folder(ref System.Windows.Controls.TextBox txtbox, string selectedPath)
+        {
+            FolderBrowserDialog browse_dialog = new FolderBrowserDialog();
+            if (selectedPath != string.Empty)
+            {
+                browse_dialog.RootFolder = Environment.SpecialFolder.Desktop;
+                browse_dialog.SelectedPath = selectedPath;
+            }
+            DialogResult dialog_result = browse_dialog.ShowDialog();
+            if (dialog_result == System.Windows.Forms.DialogResult.OK)
+                txtbox.Text = browse_dialog.SelectedPath;
+        }
+
         private void browse_file(ref System.Windows.Controls.TextBox txtbox)
         {
             OpenFileDialog nca_browse_dialog = new OpenFileDialog();
             DialogResult dialog_result = nca_browse_dialog.ShowDialog();
             if (dialog_result == System.Windows.Forms.DialogResult.OK)
+            {
                 txtbox.Text = nca_browse_dialog.FileName;
+                if (txtbox.Name == "txt_xci" && txt_outdir.Text == string.Empty)
+                {
+                    txt_outdir.Text = Path.GetDirectoryName(txt_xci.Text);
+                }
+            }
         }
 
         private void btn_browse_outdir_Click(object sender, RoutedEventArgs e)
         {
-            browse_folder(ref txt_outdir);
+            if (txt_outdir.Text == string.Empty)
+            {
+                browse_folder(ref txt_outdir);
+            }
+            else
+            {                
+                browse_folder(ref txt_outdir, txt_outdir.Text);
+            }            
         }
 
         private void btn_browse_keyset_Click(object sender, RoutedEventArgs e)
