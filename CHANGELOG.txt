@@ -1,3 +1,13 @@
+v3.05
+Fixed support for XCIs with non-title crypto updates (Custom XCIs)
+Fixed a bug cause temp folder doesn't get deleted after conversion is done when xci contains update
+4NXCI-GUI:
+Removed read only from xci, output and keys fields.
+Used tabIndex property to allow proper tab browsing in order.
+Set output folder equal to folder where XCI is located. If an output folder was selected previously, doesn't change anything.
+Browse dialog for output folder now automatically selects the folder in text field, if set.
+4NXCI-GUI changes credits: https://github.com/TehPsychedelic
+
 v3.01
 4NXCI now escapes special file path characters in titlename
 
