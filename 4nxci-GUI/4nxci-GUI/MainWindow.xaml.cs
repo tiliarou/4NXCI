@@ -35,6 +35,16 @@ namespace hacPack_GUI
             {
                 System.Windows.Application.Current.Shutdown();
             }
+
+            initializeKeyset();
+        }
+
+        private void initializeKeyset()
+        {
+            if (File.Exists(".\\keys.dat"))
+            {
+                txt_keyset.Text = Path.GetFullPath(".\\keys.dat");
+            }
         }
 
         private bool is_4nxci_exists()
