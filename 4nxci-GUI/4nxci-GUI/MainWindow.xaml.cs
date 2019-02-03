@@ -16,6 +16,7 @@ using System.ComponentModel;
 using System.Collections;
 using System.Globalization;
 using Path = System.IO.Path;
+using System.Threading;
 
 namespace hacPack_GUI
 {
@@ -87,6 +88,7 @@ namespace hacPack_GUI
         {
             if (is_4nxci_exists() == true && check_general_options() == true)
             {
+                btn_convert.IsEnabled = false;
                 string nxci_args;
                 nxci_args = "\"" + txt_xci.Text + "\" -k \"" + txt_keyset.Text + "\" -o \"" + txt_outdir.Text + "\" " + args;
                 Process nxci = new Process();
@@ -98,10 +100,21 @@ namespace hacPack_GUI
                 nxci.OutputDataReceived += OnOutputDataReceived;
                 nxci.ErrorDataReceived += OnOutputDataReceived;
                 nxci.StartInfo.CreateNoWindow = true;
+                nxci.EnableRaisingEvents = true;
+                nxci.Exited += new EventHandler(has_4ncxi_exited);
                 nxci.Start();
+                txt_log.Text = "4nxci execution started. Please wait...\n\n";
                 nxci.BeginOutputReadLine();
-                nxci.BeginErrorReadLine();
+                nxci.BeginErrorReadLine();                            
             }
+        }
+
+        private void has_4ncxi_exited(object sender, System.EventArgs e)
+        {
+            this.Dispatcher.Invoke(() =>
+            {
+                btn_convert.IsEnabled = true;
+            });
         }
 
         private void browse_folder(ref System.Windows.Controls.TextBox txtbox)
