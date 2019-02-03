@@ -1,22 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Forms;
 using System.Diagnostics;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 using System.IO;
-using System.ComponentModel;
-using System.Collections;
-using System.Globalization;
 using Path = System.IO.Path;
-using System.Threading;
 
 namespace hacPack_GUI
 {
@@ -105,7 +92,7 @@ namespace hacPack_GUI
                 nxci.Start();
                 txt_log.Text = "4nxci execution started. Please wait...\n\n";
                 nxci.BeginOutputReadLine();
-                nxci.BeginErrorReadLine();                            
+                nxci.BeginErrorReadLine();
             }
         }
 
