@@ -44,6 +44,9 @@ int main(int argc, char **argv)
 {
     nxci_ctx_t tool_ctx;
     char input_name[0x200];
+	
+	setbuf(stdout, NULL);
+	setbuf(stderr, NULL);
 
     printf("4NXCI %s by The-4n\n", NXCI_VERSION);
 
