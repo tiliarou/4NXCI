@@ -22,8 +22,9 @@
         <Label x:Name="lbl_xci" Content="XCI:" HorizontalAlignment="Left" Margin="82,11,0,0" VerticalAlignment="Top"/>
         <TextBox x:Name="txt_xci" HorizontalAlignment="Left" Height="22" Margin="3.618,13,0,0" TextWrapping="NoWrap" VerticalAlignment="Top" Width="519" Grid.ColumnSpan="2" Grid.Column="1" TabIndex="0"/>
         <Button x:Name="btn_xci" Content="Browse" HorizontalAlignment="Left" Margin="232.334,13,0,0" VerticalAlignment="Top" Width="102" Height="22" Click="btn_xci_Click" Grid.Column="2" TabIndex="1"/>
-        <Button x:Name="btn_convert" Content="Convert" HorizontalAlignment="Left" Margin="232.334,111,0,0" VerticalAlignment="Top" Width="102" Height="22" Click="btn_convert_Click" Grid.Column="2" TabIndex="8"/>
+        <Button x:Name="btn_convert" Content="Convert" HorizontalAlignment="Left" Margin="232.334,111,0,0" VerticalAlignment="Top" Width="102" Height="22" Click="btn_convert_Click" Grid.Column="2" TabIndex="9"/>
         <CheckBox x:Name="chk_rename" Content="Use Titlename" HorizontalAlignment="Left" Margin="3.618,116,0,0" VerticalAlignment="Top" Width="97" Grid.Column="1" TabIndex="6"/>
         <CheckBox x:Name="chk_keepncaid" Content="Keep Ncaid" HorizontalAlignment="Left" Margin="116.618,116,0,0" VerticalAlignment="Top" Width="87" Grid.Column="1" TabIndex="7"/>
+        <CheckBox x:Name="chk_tempfolder" Content="Use Output Dir as Temporary" HorizontalAlignment="Left" Margin="218,116,0,0" VerticalAlignment="Top" Width="211" Grid.Column="1" TabIndex="8" Grid.ColumnSpan="2"/>
     </Grid>
 </Window>
