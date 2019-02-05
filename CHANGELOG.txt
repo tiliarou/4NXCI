@@ -1,3 +1,13 @@
+v3.06:
+Added keys.txt, keys.ini and prod.keys as default locations for loading keyset file
+Removed stdout and stderr buffer
+4NXCI-GUI:
+Added checkbox to allow setting temporary folder equal to output 
+Auto set key filepath if it's located in program's directory
+Modified convert button to prevent launching multiple instances of 4NXCI in background
+Fixed log sync
+4NXCI-GUI changes credits: https://github.com/TehPsychedelic
+
 v3.05
 Fixed support for XCIs with non-title crypto updates (Custom XCIs)
 Fixed a bug cause temp folder doesn't get deleted after conversion is done when xci contains update
