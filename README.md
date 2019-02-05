@@ -5,7 +5,7 @@
 4NXCI is a tool for converting XCI(NX Card Image) files to NSP  
 
 4NXCI is based on [hactool](https://github.com/SciresM/hactool) by SciresM  
-Thanks: SciresM, Rajkosto, Switch Brew
+Thanks: SciresM, Rajkosto, Switch Brew  
 Also thanks TehPsychedelic for working on 4NXCI-GUI  
 
 ## Usage
