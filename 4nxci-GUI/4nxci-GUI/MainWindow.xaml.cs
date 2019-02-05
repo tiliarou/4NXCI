@@ -174,6 +174,8 @@ namespace hacPack_GUI
                 args += "-r ";
             if (chk_keepncaid.IsChecked == true)
                 args += "--keepncaid ";
+            if (chk_tempfolder.IsChecked == true)
+                args += "-t \"" + txt_outdir.Text + "\\4nxci_extracted_xci\"";
             launch_4nxci(args);
         }
 
