@@ -5,7 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using Path = System.IO.Path;
 
-namespace hacPack_GUI
+namespace NXCI_GUI
 {
     /// <summary>
     /// Interaction logic for MainWindow.xaml
