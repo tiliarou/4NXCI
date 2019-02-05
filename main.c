@@ -44,7 +44,7 @@ int main(int argc, char **argv)
 {
     nxci_ctx_t tool_ctx;
     char input_name[0x200];
-	
+
     setbuf(stdout, NULL);
     setbuf(stderr, NULL);
 
@@ -60,11 +60,9 @@ int main(int argc, char **argv)
     memset(&addon_nsps, 0, sizeof(addon_nsps));
 
     filepath_t keypath;
-
     filepath_init(&keypath);
+
     pki_initialize_keyset(&tool_ctx.settings.keyset);
-    // Default keyset filepath
-    filepath_set(&keypath, "keys.dat");
 
     // Hardcode secure partition save path to "4nxci_extracted_nsp" directory
     filepath_init(&tool_ctx.settings.secure_dir_path);
@@ -116,21 +114,43 @@ int main(int argc, char **argv)
         }
     }
 
-    // Try to populate default keyfile.
+    // Locating default key file
     FILE *keyfile = NULL;
     keyfile = os_fopen(keypath.os_path, OS_MODE_READ);
+    if (keypath.valid == VALIDITY_INVALID)
+    {
+        filepath_set(&keypath, "keys.dat");
+        keyfile = os_fopen(keypath.os_path, OS_MODE_READ);
+        if (keyfile == NULL)
+        {
+            filepath_set(&keypath, "keys.txt");
+            keyfile = os_fopen(keypath.os_path, OS_MODE_READ);
+        }
+        if (keyfile == NULL)
+        {
+            filepath_set(&keypath, "keys.ini");
+            keyfile = os_fopen(keypath.os_path, OS_MODE_READ);
+        }
+        if (keyfile == NULL)
+        {
+            filepath_set(&keypath, "prod.keys");
+            keyfile = os_fopen(keypath.os_path, OS_MODE_READ);
+        }
+    }
 
+    // Try to populate default keyfile.
     if (keyfile != NULL)
     {
+        printf("\nLoading '%s' keyset file\n", keypath.char_path);
         extkeys_initialize_keyset(&tool_ctx.settings.keyset, keyfile);
         pki_derive_keys(&tool_ctx.settings.keyset);
         fclose(keyfile);
     }
     else
     {
-        fprintf(stderr, "Unable to open keyset '%s'\n"
-                        "Use -k or --keyset to specify your keyset path or place your keyset in ." OS_PATH_SEPARATOR "keys.dat\n",
-                keypath.char_path);
+        printf("\n");
+        fprintf(stderr, "Error: Unable to open keyset file\n"
+                        "Use -k or --keyset to specify your keyset file path or place your keyset in ." OS_PATH_SEPARATOR "keys.dat\n");
         return EXIT_FAILURE;
     }
 

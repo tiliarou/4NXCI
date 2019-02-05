@@ -33,6 +33,18 @@ namespace NXCI_GUI
             {
                 txt_keyset.Text = Path.GetFullPath(".\\keys.dat");
             }
+            else if (File.Exists(".\\keys.txt"))
+            {
+                txt_keyset.Text = Path.GetFullPath(".\\keys.txt");
+            }
+            else if (File.Exists(".\\keys.ini"))
+            {
+                txt_keyset.Text = Path.GetFullPath(".\\keys.ini");
+            }
+            else if (File.Exists(".\\prod.keys"))
+            {
+                txt_keyset.Text = Path.GetFullPath(".\\prod.keys");
+            }
         }
 
         private bool is_4nxci_exists()
