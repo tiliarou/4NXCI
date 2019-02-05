@@ -6,7 +6,7 @@
 
 4NXCI is based on [hactool](https://github.com/SciresM/hactool) by SciresM  
 Thanks: SciresM, Rajkosto, Switch Brew  
-Also thanks TehPsychedelic for working on 4NXCI-GUI  
+Thanks TehPsychedelic for working on 4NXCI-GUI  
 
 ## Usage
 
