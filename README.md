@@ -6,6 +6,7 @@
 
 4NXCI is based on [hactool](https://github.com/SciresM/hactool) by SciresM  
 Thanks: SciresM, Rajkosto, Switch Brew
+Also thanks TehPsychedelic for working on 4NXCI-GUI  
 
 ## Usage
 
@@ -17,8 +18,10 @@ Key Name | Description
 header_key | NCA Header Key
 key_area_key_application_xx | Application key area encryption keys
 
-Created NSP files are located in the same folder as 4NXCI with 'titleid.nsp' filename  
-4NXCI creates "4nxci_extracted_xci" folder as a temp folder, you can remove it after the conversion is done
+By defaullt, Created NSP files are located in the same folder as 4NXCI with 'titleid.nsp' filename  
+You can change output directory with -o, --outdir option and use titlename for filenames with -r, --rename option  
+4NXCI creates "4nxci_extracted_xci" folder as a temp directory, It deletes the directory content before and after conversion  
+If you use -t, --tempdir option to choose a temporary directory, Make sure it's an empty directory and it's not the same as output directory otherwise 4NXCI deletes it  
 
 ```
 *nix: ./4nxci [options...] <path_to_file.xci>  
