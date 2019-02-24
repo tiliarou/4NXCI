@@ -5,7 +5,6 @@
 #include <libgen.h>
 #include "nca.h"
 #include "cnmt.h"
-#include "dummy.h"
 
 /* Create .cnmt.xml
  The process is done without xml libs cause i don't want to add more dependency for now
@@ -43,24 +42,22 @@ void cnmt_create_xml(cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_ctx_t *cnmt_ctx, nsp_ctx
     fprintf(file, "</ContentMeta>");
 
     // Set file size for creating nsp
-    nsp_ctx->nsp_entry[2].filesize = (uint64_t)ftello64(file);
+    nsp_ctx->nsp_entry[0].filesize = (uint64_t)ftello64(file);
 
     // Set file path for creating nsp
-    filepath_init(&nsp_ctx->nsp_entry[2].filepath);
-    nsp_ctx->nsp_entry[2].filepath = cnmt_xml_ctx->filepath;
+    filepath_init(&nsp_ctx->nsp_entry[0].filepath);
+    nsp_ctx->nsp_entry[0].filepath = cnmt_xml_ctx->filepath;
 
     // Set nsp filename
-    nsp_ctx->nsp_entry[2].nsp_filename = (char *)calloc(1, 42);
-    strcpy(nsp_ctx->nsp_entry[2].nsp_filename, cnmt_xml_ctx->contents[cnmt_ctx->nca_count].id);
-    strcat(nsp_ctx->nsp_entry[2].nsp_filename, ".cnmt.xml");
+    nsp_ctx->nsp_entry[0].nsp_filename = (char *)calloc(1, 42);
+    strcpy(nsp_ctx->nsp_entry[0].nsp_filename, cnmt_xml_ctx->contents[cnmt_ctx->nca_count].id);
+    strcat(nsp_ctx->nsp_entry[0].nsp_filename, ".cnmt.xml");
 
     fclose(file);
 }
 
 void cnmt_gamecard_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_ctx_t *cnmt_ctx, nsp_ctx_t *nsp_ctx)
 {
-    cnmt_ctx->has_rightsid = 0;
-
     // Set xml meta values
     cnmt_xml_ctx->contents = (cnmt_xml_content_t *)malloc((cnmt_ctx->nca_count + 1) * sizeof(cnmt_xml_content_t)); // ncas + meta nca
     cnmt_xml_ctx->title_id = (char *)calloc(1, 17);
@@ -79,16 +76,9 @@ void cnmt_gamecard_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_
     filepath_init(&cnmt_xml_ctx->filepath);
     filepath_set(&cnmt_xml_ctx->filepath, cnmt_xml_filepath);
 
-    // nsp filename = tid + .nsp
-    char *nsp_filename = (char *)calloc(1, 21);
-    strncpy(nsp_filename, cnmt_xml_ctx->title_id, 16);
-    strcat(nsp_filename, ".nsp");
-    filepath_init(&nsp_ctx->filepath);
-    filepath_set(&nsp_ctx->filepath, nsp_filename);
-    free(nsp_filename);
-
-    // nsp entries count = nca counts + .tik + .cert + .cnmmt.xml + .cnmt.nca
-    nsp_ctx->nsp_entry = (nsp_entry_t *)calloc(1, sizeof(nsp_entry_t) * (cnmt_ctx->nca_count + 4));
+    // nsp entries count = nca counts + .cnmmt.xml + .cnmt.nca
+    nsp_ctx->entry_count = cnmt_ctx->nca_count + 2;
+    nsp_ctx->nsp_entry = (nsp_entry_t *)calloc(1, sizeof(nsp_entry_t) * (cnmt_ctx->nca_count + 2));
 
     // Process NCA files
     nca_ctx_t nca_ctx;
@@ -125,34 +115,50 @@ void cnmt_gamecard_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_
     nca_gamecard_process(&nca_ctx, &cnmt_ctx->meta_filepath, cnmt_ctx->nca_count, cnmt_xml_ctx, cnmt_ctx, nsp_ctx);
     nca_free_section_contexts(&nca_ctx);
 
-    filepath_t tik_filepath;
-    filepath_t cert_filepath;
-    filepath_init(&tik_filepath);
-    filepath_init(&cert_filepath);
-
-    // tik filename is: title id (16 bytes) + key generation (16 bytes) + .tik
-    filepath_copy(&tik_filepath, &nca_ctx.tool_ctx->settings.secure_dir_path);
-    filepath_append(&tik_filepath, "%s000000000000000%u.tik", cnmt_xml_ctx->title_id, cnmt_ctx->keygen_min);
-
-    // cert filename is: title id (16 bytes) + key generation (16 bytes) + .cert
-    filepath_copy(&cert_filepath, &nca_ctx.tool_ctx->settings.secure_dir_path);
-    filepath_append(&cert_filepath, "%s000000000000000%u.cert", cnmt_xml_ctx->title_id, cnmt_ctx->keygen_min);
-
+    // Create .cnmt.xml
     printf("\n");
     cnmt_create_xml(cnmt_xml_ctx, cnmt_ctx, nsp_ctx);
-    if (tool->settings.dummy_tik == 0)
+
+    // Set NSP filename
+    char *nsp_filename;
+    if (cnmt_ctx->type == 0x80 && tool->settings.titlename == 1) // Application
     {
-        // Skip dummy cert and tik
-        nsp_ctx->entry_count = cnmt_ctx->nca_count + 2;
-        nsp_ctx->nsp_entry = nsp_ctx->nsp_entry + 2;
+        // nsp filename = titlename + .nsp
+        nsp_filename = (char *)calloc(1, strlen(nsp_ctx->title_name) + 5);
+        strcpy(nsp_filename, nsp_ctx->title_name);
+    }
+    else if (cnmt_ctx->type == 0x82 && tool->settings.titlename == 1) // AddOnContent
+    {
+        // nsp filename = tid + .nsp
+        nsp_filename = (char *)calloc(1, 21);
+        strncpy(nsp_filename, cnmt_xml_ctx->title_id, 16);
+        for (int addtc = 0; addtc < applications_cnmt_ctx.count; addtc++)
+        {
+            if (applications_cnmt_ctx.cnmt[addtc].title_id == cnmt_ctx->extended_header_patch_id)
+            {
+                nsp_filename = (char *)calloc(1, strlen(application_nsps[addtc].title_name) + 28);
+                sprintf(nsp_filename, "%s[DLC][%" PRIx64 "]", application_nsps[addtc].title_name, cnmt_ctx->title_id);
+                break;
+            }
+        }
     }
     else
     {
-        dummy_create_tik(&tik_filepath, nsp_ctx);
-        dummy_create_cert(&cert_filepath, nsp_ctx);
-        // .tik + .cert + .cnmt.xml + ncas . cnmt.nca
-        nsp_ctx->entry_count = cnmt_ctx->nca_count + 4;
+        // nsp filename = tid + .nsp
+        nsp_filename = (char *)calloc(1, 21);
+        strncpy(nsp_filename, cnmt_xml_ctx->title_id, 16);
     }
+    strcat(nsp_filename, ".nsp");
+    filepath_init(&nsp_ctx->filepath);
+    if (tool->settings.out_dir_path.valid == VALIDITY_VALID)
+    {
+        filepath_copy(&nsp_ctx->filepath, &tool->settings.out_dir_path);
+        filepath_append(&nsp_ctx->filepath, "%s", nsp_filename);
+    }
+    else
+        filepath_set(&nsp_ctx->filepath, nsp_filename);
+    free(nsp_filename);
+
     printf("\n");
     nsp_create(nsp_ctx);
 }
@@ -160,10 +166,6 @@ void cnmt_gamecard_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_
 void cnmt_download_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_ctx_t *cnmt_ctx, nsp_ctx_t *nsp_ctx)
 {
     cnmt_ctx->has_rightsid = 0;
-
-    // Skipping delta fragments
-    if (cnmt_ctx->type == 0x81 && cnmt_ctx->nca_count > application_cnmt.nca_count)
-        cnmt_ctx->nca_count = application_cnmt.nca_count;
 
     // Set xml meta values
     cnmt_xml_ctx->contents = (cnmt_xml_content_t *)malloc((cnmt_ctx->nca_count + 1) * sizeof(cnmt_xml_content_t)); // ncas + meta nca
@@ -183,15 +185,8 @@ void cnmt_download_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_
     filepath_init(&cnmt_xml_ctx->filepath);
     filepath_set(&cnmt_xml_ctx->filepath, cnmt_xml_filepath);
 
-    // nsp filename = tid + .nsp
-    char *nsp_filename = (char *)calloc(1, 21);
-    strncpy(nsp_filename, cnmt_xml_ctx->title_id, 16);
-    strcat(nsp_filename, ".nsp");
-    filepath_init(&nsp_ctx->filepath);
-    filepath_set(&nsp_ctx->filepath, nsp_filename);
-    free(nsp_filename);
-
     // nsp entries count = nca counts + .tik + .cert + .cnmmt.xml + .cnmt.nca
+    nsp_ctx->entry_count = cnmt_ctx->nca_count + 4;
     nsp_ctx->nsp_entry = (nsp_entry_t *)calloc(1, sizeof(nsp_entry_t) * (cnmt_ctx->nca_count + 4));
 
     // Process NCA files
@@ -229,41 +224,43 @@ void cnmt_download_process(nxci_ctx_t *tool, cnmt_xml_ctx_t *cnmt_xml_ctx, cnmt_
     nca_download_process(&nca_ctx, &cnmt_ctx->meta_filepath, cnmt_ctx->nca_count, cnmt_xml_ctx, cnmt_ctx, nsp_ctx);
     nca_free_section_contexts(&nca_ctx);
 
-    filepath_t tik_filepath;
-    filepath_t cert_filepath;
-    filepath_init(&tik_filepath);
-    filepath_init(&cert_filepath);
-
-    if (cnmt_ctx->has_rightsid == 0)
-    {
-        // tik filename is: title id (16 bytes) + 15 bytes of 0 + key generation + .tik
-        filepath_copy(&tik_filepath, &nca_ctx.tool_ctx->settings.secure_dir_path);
-        filepath_append(&tik_filepath, "%s000000000000000%u.tik", cnmt_xml_ctx->title_id, cnmt_ctx->keygen_min);
-
-        // cert filename is: title id (16 bytes) + 15 bytes of 0 + key generation + .cert
-        filepath_copy(&cert_filepath, &nca_ctx.tool_ctx->settings.secure_dir_path);
-        filepath_append(&cert_filepath, "%s000000000000000%u.cert", cnmt_xml_ctx->title_id, cnmt_ctx->keygen_min);
-    }
-
     printf("\n");
     cnmt_create_xml(cnmt_xml_ctx, cnmt_ctx, nsp_ctx);
-    if (cnmt_ctx->has_rightsid == 0)
+
+    char *nsp_filename;
+    if (tool->settings.titlename == 1)
     {
-        dummy_create_tik(&tik_filepath, nsp_ctx);
-        dummy_create_cert(&cert_filepath, nsp_ctx);
-    }
-    if ((cnmt_ctx->has_rightsid == 0) && (tool->settings.dummy_tik == 0))
-    {
-        // Skip dummy cert and tik
-        nsp_ctx->entry_count = cnmt_ctx->nca_count + 2;
-        nsp_ctx->nsp_entry = nsp_ctx->nsp_entry + 2;
+        // nsp filename = titlename[UPD][titleversion] + .nsp
+        nsp_filename = (char *)calloc(1, strlen(nsp_ctx->title_name) + strlen(nsp_ctx->title_display_version) + 12);
+        sprintf(nsp_filename, "%s[UPD][%s]", nsp_ctx->title_name, nsp_ctx->title_display_version);
     }
     else
     {
-        // .tik + .cert + .cnmt.xml + ncas . cnmt.nca
-        nsp_ctx->entry_count = cnmt_ctx->nca_count + 4;
+        // nsp filename = tid + .nsp
+        nsp_filename = (char *)calloc(1, 21);
+        strncpy(nsp_filename, cnmt_xml_ctx->title_id, 16);
     }
+    strcat(nsp_filename, ".nsp");
+    filepath_init(&nsp_ctx->filepath);
+    if (tool->settings.out_dir_path.valid == VALIDITY_VALID)
+    {
+        filepath_copy(&nsp_ctx->filepath, &tool->settings.out_dir_path);
+        filepath_append(&nsp_ctx->filepath, "%s", nsp_filename);
+    }
+    else
+        filepath_set(&nsp_ctx->filepath, nsp_filename);
+    free(nsp_filename);
+
     printf("\n");
+
+    // Custom XCIs may not contain tik and cert
+    if (cnmt_ctx->has_rightsid == 0)
+    {
+        memcpy(&nsp_ctx->nsp_entry[2], &nsp_ctx->nsp_entry[0], sizeof(nsp_entry_t));
+        nsp_ctx->nsp_entry += 2;
+        nsp_ctx->entry_count -= 2;
+    }
+
     nsp_create(nsp_ctx);
 }
 

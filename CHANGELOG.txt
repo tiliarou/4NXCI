@@ -1,3 +1,44 @@
+v3.06:
+Added keys.txt, keys.ini and prod.keys as default locations for loading keyset file
+Removed stdout and stderr buffer
+4NXCI-GUI:
+Added checkbox to allow setting temporary folder equal to output 
+Auto set key filepath if it's located in program's directory
+Modified convert button to prevent launching multiple instances of 4NXCI in background
+Fixed log sync
+4NXCI-GUI changes credits: https://github.com/TehPsychedelic
+
+v3.05
+Fixed support for XCIs with non-title crypto updates (Custom XCIs)
+Fixed a bug cause temp folder doesn't get deleted after conversion is done when xci contains update
+4NXCI-GUI:
+Removed read only from xci, output and keys fields.
+Used tabIndex property to allow proper tab browsing in order.
+Set output folder equal to folder where XCI is located. If an output folder was selected previously, doesn't change anything.
+Browse dialog for output folder now automatically selects the folder in text field, if set.
+4NXCI-GUI changes credits: https://github.com/TehPsychedelic
+
+v3.01
+4NXCI now escapes special file path characters in titlename
+
+v3.00
+Added 4NXCI-GUI
+Added --rename option for using titlename instead of titleid for naming nsps
+Added --keepncaid option for keeping original nca ids in cnmt
+4NXCI now only looks for section 0 in program nca for main.npdm
+Removed dummy tik and cert option
+
+v2.10
+Added support for keygeneration 7
+Added options for setting temp and output directory paths
+Added support for gamecards with multiple updates
+
+v2.01
+Fixed a bug cause metadata ncas remain open in 4NXCI and removing temp directory fails
+
+v2.00
+4NXCI now supports XCIs with more than one Application Metadata (Gamecards with more than one game)
+
 v1.36
 4NXCI now delete temp folder after the conversion is finished
 Changed cnmt patching method

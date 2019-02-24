@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include "aes.h"
 #include "types.h"
 #include "utils.h"
@@ -88,7 +89,21 @@ void aes_encrypt(aes_ctx_t *ctx, void *dst, const void *src, size_t l) {
 }
 
 /* Decrypt with context. */
-void aes_decrypt(aes_ctx_t *ctx, void *dst, const void *src, size_t l) {
+void aes_decrypt(aes_ctx_t *ctx, void *dst, const void *src, size_t l) 
+{
+    bool src_equals_dst = false; 
+
+    if (src == dst)
+    {
+        src_equals_dst = true;
+
+        dst = malloc(l);
+        if (dst == NULL) {
+            fprintf(stderr, "Error: AES buffer allocation failure!\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+
     size_t out_len = 0;
     
     /* Prepare context */
@@ -111,9 +126,16 @@ void aes_decrypt(aes_ctx_t *ctx, void *dst, const void *src, size_t l) {
     
     /* Flush all data */
     mbedtls_cipher_finish(&ctx->cipher_dec, NULL, NULL);
+
+    if (src_equals_dst)
+    {
+        memcpy((void*)src, dst, l);
+        free(dst);
+    }
 }
 
-void get_tweak(unsigned char *tweak, size_t sector) {
+
+static void get_tweak(unsigned char *tweak, size_t sector) {
     for (int i = 0xF; i >= 0; i--) { /* Nintendo LE custom tweak... */
         tweak[i] = (unsigned char)(sector & 0xFF);
         sector >>= 8;
@@ -132,7 +154,7 @@ void aes_xts_encrypt(aes_ctx_t *ctx, void *dst, const void *src, size_t l, size_
         /* Workaround for Nintendo's custom sector...manually generate the tweak. */
         get_tweak(tweak, sector++);
         aes_setiv(ctx, tweak, 16);
-        aes_encrypt(ctx, (char *)dst + i, (char *)src + i, sector_size);
+        aes_encrypt(ctx, (char *)dst + i, (const char *)src + i, sector_size);
     }
 }
 
@@ -148,6 +170,6 @@ void aes_xts_decrypt(aes_ctx_t *ctx, void *dst, const void *src, size_t l, size_
         /* Workaround for Nintendo's custom sector...manually generate the tweak. */
         get_tweak(tweak, sector++);
         aes_setiv(ctx, tweak, 16);
-        aes_decrypt(ctx, (char *)dst + i, (char *)src + i, sector_size);
+        aes_decrypt(ctx, (char *)dst + i, (const char *)src + i, sector_size);
     }
 }

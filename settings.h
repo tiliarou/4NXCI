@@ -5,11 +5,6 @@
 #include "filepath.h"
 
 typedef enum {
-    KEYSET_DEV,
-    KEYSET_RETAIL
-} keyset_variant_t;
-
-typedef enum {
     BASEFILE_ROMFS,
     BASEFILE_NCA,
     BASEFILE_FAKE
@@ -24,6 +19,9 @@ typedef struct {
     unsigned char keyblobs[0x20][0x90];                  /* Actual decrypted keyblobs (EKS). */ 
     unsigned char keyblob_key_sources[0x20][0x10];       /* Seeds for keyblob keys. */
     unsigned char keyblob_mac_key_source[0x10];          /* Seed for keyblob MAC key derivation. */
+    unsigned char tsec_root_key[0x10];                   /* Seed for master kek decryption, from TSEC firmware on 6.2.0+. */
+    unsigned char master_kek_sources[0x20][0x10];        /* Seeds for firmware master keks. */
+    unsigned char master_keks[0x20][0x10];               /* Firmware master keks, stored in keyblob prior to 6.2.0. */
     unsigned char master_key_source[0x10];               /* Seed for master key derivation. */
     unsigned char master_keys[0x20][0x10];               /* Firmware master keys. */
     unsigned char package1_keys[0x20][0x10];             /* Package1 keys. */
@@ -38,6 +36,8 @@ typedef struct {
     unsigned char header_kek_source[0x10];               /* Seed for header kek. */
     unsigned char sd_card_kek_source[0x10];              /* Seed for SD card kek. */
     unsigned char sd_card_key_sources[2][0x20];          /* Seed for SD card encryption keys. */
+    unsigned char save_mac_kek_source[0x10];             /* Seed for save kek. */
+    unsigned char save_mac_key_source[0x10];             /* Seed for save key. */
     unsigned char header_key_source[0x20];               /* Seed for NCA header key. */
     unsigned char header_key[0x20];                      /* NCA header key. */
     unsigned char titlekeks[0x20][0x10];                 /* Title key encryption keys. */
@@ -54,13 +54,11 @@ typedef struct {
 } override_filepath_t;
 
 typedef struct {
-    uint8_t dummy_tik;
     nca_keyset_t keyset;
-    filepath_t section_paths[4];
-    filepath_t section_dir_paths[4];
-    override_filepath_t out_dir_path;
-    filepath_t hfs0_dir_path;
     filepath_t secure_dir_path;
+    filepath_t out_dir_path;
+    uint8_t titlename;
+    uint8_t keepncaid;
 } nxci_settings_t;
 
 enum hactool_file_type

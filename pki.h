@@ -11,6 +11,6 @@
 #define ZEROES_KAEKS {ZEROES_KEY, ZEROES_KEY, ZEROES_KEY}
 
 void pki_derive_keys(nca_keyset_t *keyset);
-void pki_initialize_keyset(nca_keyset_t *keyset, keyset_variant_t variant);
+void pki_initialize_keyset(nca_keyset_t *keyset);
 
 #endif

@@ -14,6 +14,7 @@ typedef wchar_t oschar_t; /* utf-16 */
 #define OS_MODE_READ L"rb"
 #define OS_MODE_WRITE L"wb"
 #define OS_MODE_EDIT L"rb+"
+#define OS_MODE_WRITE_EDIT L"wb+"
 #define OS_PATH_SEPARATOR "\\"
 #else
 typedef char oschar_t; /* utf-8 */
@@ -23,6 +24,7 @@ typedef char oschar_t; /* utf-8 */
 #define OS_MODE_READ "rb"
 #define OS_MODE_WRITE "wb"
 #define OS_MODE_EDIT "rb+"
+#define OS_MODE_WRITE_EDIT "wb+"
 #define OS_PATH_SEPARATOR "/"
 #endif
 

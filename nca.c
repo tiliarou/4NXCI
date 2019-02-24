@@ -7,6 +7,7 @@
 #include "pki.h"
 #include "sha.h"
 #include "rsa.h"
+#include "romfs.h"
 #include "utils.h"
 #include "extkeys.h"
 #include "filepath.h"
@@ -171,108 +172,150 @@ void nca_exefs_npdm_process(nca_ctx_t *ctx)
     nca_decrypt_key_area(ctx);
 
     // Looking for main.npdm / META
-    for (int i = 0; i < 4; i++)
+    ctx->section_contexts[0].aes = new_aes_ctx(ctx->decrypted_keys[2], 16, AES_MODE_CTR);
+    ctx->section_contexts[0].offset = media_to_real(ctx->header.section_entries[0].media_start_offset);
+    ctx->section_contexts[0].sector_ofs = 0;
+    ctx->section_contexts[0].file = ctx->file;
+    ctx->section_contexts[0].crypt_type = CRYPT_CTR;
+    ctx->section_contexts[0].header = &ctx->header.fs_headers[0];
+
+    // Calculate counter for section decryption
+    uint64_t ofs = ctx->section_contexts[0].offset >> 4;
+    for (unsigned int j = 0; j < 0x8; j++)
     {
-        if (ctx->header.section_entries[i].media_start_offset)
+        ctx->section_contexts[0].ctr[j] = ctx->section_contexts[0].header->section_ctr[0x8 - j - 1];
+        ctx->section_contexts[0].ctr[0x10 - j - 1] = (unsigned char)(ofs & 0xFF);
+        ofs >>= 8;
+    }
+
+    // Read and decrypt PFS0 header
+    pfs0_start_offset = ctx->header.fs_headers[0].pfs0_superblock.pfs0_offset;
+    nca_section_fseek(&ctx->section_contexts[0], pfs0_start_offset);
+    nca_section_fread(&ctx->section_contexts[0], &pfs0_header, sizeof(pfs0_header_t));
+    // Read and decrypt file entry table
+    file_entry_table_offset = pfs0_start_offset + sizeof(pfs0_header_t);
+    file_entry_table_size = sizeof(pfs0_file_entry_t) * pfs0_header.num_files;
+    pfs0_file_entry_t *pfs0_file_entry_table = (pfs0_file_entry_t *)malloc(file_entry_table_size);
+    nca_section_fseek(&ctx->section_contexts[0], file_entry_table_offset);
+    nca_section_fread(&ctx->section_contexts[0], pfs0_file_entry_table, file_entry_table_size);
+
+    // Looking for META magic
+    uint32_t magic = 0;
+    raw_data_offset = file_entry_table_offset + file_entry_table_size + pfs0_header.string_table_size;
+    for (unsigned int i2 = 0; i2 < pfs0_header.num_files; i2++)
+    {
+        file_raw_data_offset = raw_data_offset + pfs0_file_entry_table[i2].offset;
+        nca_section_fseek(&ctx->section_contexts[0], file_raw_data_offset);
+        nca_section_fread(&ctx->section_contexts[0], &magic, sizeof(magic));
+        if (magic == MAGIC_META)
         {
-            if (ctx->header.fs_headers[i].partition_type == PARTITION_PFS0 && ctx->header.fs_headers[i].fs_type == FS_TYPE_PFS0 && ctx->header.fs_headers[i].crypt_type == CRYPT_CTR)
-            {
-                ctx->section_contexts[i].aes = new_aes_ctx(ctx->decrypted_keys[2], 16, AES_MODE_CTR);
-                ctx->section_contexts[i].offset = media_to_real(ctx->header.section_entries[i].media_start_offset);
-                ctx->section_contexts[i].sector_ofs = 0;
-                ctx->section_contexts[i].file = ctx->file;
-                ctx->section_contexts[i].crypt_type = CRYPT_CTR;
-                ctx->section_contexts[i].header = &ctx->header.fs_headers[i];
-                // Calculate counter for section decryption
-                uint64_t ofs = ctx->section_contexts[i].offset >> 4;
-                for (unsigned int j = 0; j < 0x8; j++)
-                {
-                    ctx->section_contexts[i].ctr[j] = ctx->section_contexts[i].header->section_ctr[0x8 - j - 1];
-                    ctx->section_contexts[i].ctr[0x10 - j - 1] = (unsigned char)(ofs & 0xFF);
-                    ofs >>= 8;
-                }
+            // Read and decrypt npdm header
+            meta_offset = file_raw_data_offset;
+            nca_section_fseek(&ctx->section_contexts[0], meta_offset);
+            nca_section_fread(&ctx->section_contexts[0], &npdm_header, sizeof(npdm_t));
 
-                // Read and decrypt PFS0 header
-                pfs0_start_offset = ctx->header.fs_headers[i].pfs0_superblock.pfs0_offset;
-                nca_section_fseek(&ctx->section_contexts[i], pfs0_start_offset);
-                nca_section_fread(&ctx->section_contexts[i], &pfs0_header, sizeof(pfs0_header_t));
-                // Read and decrypt file entry table
-                file_entry_table_offset = pfs0_start_offset + sizeof(pfs0_header_t);
-                file_entry_table_size = sizeof(pfs0_file_entry_t) * pfs0_header.num_files;
-                pfs0_file_entry_t *pfs0_file_entry_table = (pfs0_file_entry_t *)malloc(file_entry_table_size);
-                nca_section_fseek(&ctx->section_contexts[i], file_entry_table_offset);
-                nca_section_fread(&ctx->section_contexts[i], pfs0_file_entry_table, file_entry_table_size);
+            // Mix some water with acid (Corrupt ACID sig)
+            acid_offset = meta_offset + npdm_header.acid_offset;
+            uint8_t acid_sig_byte = 0;
+            nca_section_fseek(&ctx->section_contexts[0], acid_offset);
+            nca_section_fread(&ctx->section_contexts[0], &acid_sig_byte, 1);
+            if (acid_sig_byte == 0xFF)
+                acid_sig_byte -= 0x01;
+            else
+                acid_sig_byte += 0x01;
+            nca_section_fwrite(&ctx->section_contexts[0], &acid_sig_byte, 0x01, acid_offset);
 
-                // Looking for META magic
-                uint32_t magic = 0;
-                raw_data_offset = file_entry_table_offset + file_entry_table_size + pfs0_header.string_table_size;
-                for (unsigned int i2 = 0; i2 < pfs0_header.num_files; i2++)
-                {
-                    file_raw_data_offset = raw_data_offset + pfs0_file_entry_table[i2].offset;
-                    nca_section_fseek(&ctx->section_contexts[i], file_raw_data_offset);
-                    nca_section_fread(&ctx->section_contexts[i], &magic, sizeof(magic));
-                    if (magic == MAGIC_META)
-                    {
-                        // Read and decrypt npdm header
-                        meta_offset = file_raw_data_offset;
-                        nca_section_fseek(&ctx->section_contexts[i], meta_offset);
-                        nca_section_fread(&ctx->section_contexts[i], &npdm_header, sizeof(npdm_t));
+            // Calculate new block hash
+            block_hash_table_offset = (0x20 * ((acid_offset - ctx->header.fs_headers[0].pfs0_superblock.pfs0_offset) / ctx->header.fs_headers[0].pfs0_superblock.block_size)) + ctx->header.fs_headers[0].pfs0_superblock.hash_table_offset;
+            block_start_offset = (((acid_offset - ctx->header.fs_headers[0].pfs0_superblock.pfs0_offset) / ctx->header.fs_headers[0].pfs0_superblock.block_size) * ctx->header.fs_headers[0].pfs0_superblock.block_size) + ctx->header.fs_headers[0].pfs0_superblock.pfs0_offset;
+            unsigned char *block_data = (unsigned char *)malloc(ctx->header.fs_headers[0].pfs0_superblock.block_size);
+            unsigned char *block_hash = (unsigned char *)malloc(0x20);
+            nca_section_fseek(&ctx->section_contexts[0], block_start_offset);
+            nca_section_fread(&ctx->section_contexts[0], block_data, ctx->header.fs_headers[0].pfs0_superblock.block_size);
+            sha_ctx_t *pfs0_sha_ctx = new_sha_ctx(HASH_TYPE_SHA256, 0);
+            sha_update(pfs0_sha_ctx, block_data, ctx->header.fs_headers[0].pfs0_superblock.block_size);
+            sha_get_hash(pfs0_sha_ctx, block_hash);
+            nca_section_fwrite(&ctx->section_contexts[0], block_hash, 0x20, block_hash_table_offset);
+            free(block_hash);
+            free(block_data);
+            free_sha_ctx(pfs0_sha_ctx);
 
-                        // Mix some water with acid (Corrupt ACID sig)
-                        acid_offset = meta_offset + npdm_header.acid_offset;
-                        uint8_t acid_sig_byte = 0;
-                        nca_section_fseek(&ctx->section_contexts[i], acid_offset);
-                        nca_section_fread(&ctx->section_contexts[i], &acid_sig_byte, 1);
-                        if (acid_sig_byte == 0xFF)
-                            acid_sig_byte -= 0x01;
-                        else
-                            acid_sig_byte += 0x01;
-                        nca_section_fwrite(&ctx->section_contexts[i], &acid_sig_byte, 0x01, acid_offset);
+            // Calculate PFS0 sueperblock hash
+            sha_ctx_t *hash_table_ctx = new_sha_ctx(HASH_TYPE_SHA256, 0);
+            unsigned char *hash_table = (unsigned char *)malloc(ctx->header.fs_headers[0].pfs0_superblock.hash_table_size);
+            unsigned char *master_hash = (unsigned char *)malloc(0x20);
+            nca_section_fseek(&ctx->section_contexts[0], ctx->header.fs_headers[0].pfs0_superblock.hash_table_offset);
+            nca_section_fread(&ctx->section_contexts[0], hash_table, ctx->header.fs_headers[0].pfs0_superblock.hash_table_size);
+            sha_update(hash_table_ctx, hash_table, ctx->header.fs_headers[0].pfs0_superblock.hash_table_size);
+            sha_get_hash(hash_table_ctx, master_hash);
+            memcpy(&ctx->header.fs_headers[0].pfs0_superblock.master_hash, master_hash, 0x20);
+            free(master_hash);
+            free(hash_table);
+            free_sha_ctx(hash_table_ctx);
 
-                        // Calculate new block hash
-                        block_hash_table_offset = (0x20 * ((acid_offset - ctx->header.fs_headers[i].pfs0_superblock.pfs0_offset) / ctx->header.fs_headers[i].pfs0_superblock.block_size)) + ctx->header.fs_headers[i].pfs0_superblock.hash_table_offset;
-                        block_start_offset = (((acid_offset - ctx->header.fs_headers[i].pfs0_superblock.pfs0_offset) / ctx->header.fs_headers[i].pfs0_superblock.block_size) * ctx->header.fs_headers[i].pfs0_superblock.block_size) + ctx->header.fs_headers[i].pfs0_superblock.pfs0_offset;
-                        unsigned char *block_data = (unsigned char *)malloc(ctx->header.fs_headers[i].pfs0_superblock.block_size);
-                        unsigned char *block_hash = (unsigned char *)malloc(0x20);
-                        nca_section_fseek(&ctx->section_contexts[i], block_start_offset);
-                        nca_section_fread(&ctx->section_contexts[i], block_data, ctx->header.fs_headers[i].pfs0_superblock.block_size);
-                        sha_ctx_t *pfs0_sha_ctx = new_sha_ctx(HASH_TYPE_SHA256, 0);
-                        sha_update(pfs0_sha_ctx, block_data, ctx->header.fs_headers[i].pfs0_superblock.block_size);
-                        sha_get_hash(pfs0_sha_ctx, block_hash);
-                        nca_section_fwrite(&ctx->section_contexts[i], block_hash, 0x20, block_hash_table_offset);
-                        free(block_hash);
-                        free(block_data);
-                        free_sha_ctx(pfs0_sha_ctx);
-
-                        // Calculate PFS0 sueperblock hash
-                        sha_ctx_t *hash_table_ctx = new_sha_ctx(HASH_TYPE_SHA256, 0);
-                        unsigned char *hash_table = (unsigned char *)malloc(ctx->header.fs_headers[i].pfs0_superblock.hash_table_size);
-                        unsigned char *master_hash = (unsigned char *)malloc(0x20);
-                        nca_section_fseek(&ctx->section_contexts[i], ctx->header.fs_headers[i].pfs0_superblock.hash_table_offset);
-                        nca_section_fread(&ctx->section_contexts[i], hash_table, ctx->header.fs_headers[i].pfs0_superblock.hash_table_size);
-                        sha_update(hash_table_ctx, hash_table, ctx->header.fs_headers[i].pfs0_superblock.hash_table_size);
-                        sha_get_hash(hash_table_ctx, master_hash);
-                        memcpy(&ctx->header.fs_headers[i].pfs0_superblock.master_hash, master_hash, 0x20);
-                        free(master_hash);
-                        free(hash_table);
-                        free_sha_ctx(hash_table_ctx);
-
-                        // Calculate section hash
-                        unsigned char *section_hash = (unsigned char *)malloc(0x20);
-                        sha_ctx_t *section_ctx = new_sha_ctx(HASH_TYPE_SHA256, 0);
-                        sha_update(section_ctx, &ctx->header.fs_headers[i], 0x200);
-                        sha_get_hash(section_ctx, section_hash);
-                        memcpy(&ctx->header.section_hashes[i], section_hash, 0x20);
-                        free(section_hash);
-                        free_sha_ctx(section_ctx);
-
-                        break;
-                    }
-                }
-                free(pfs0_file_entry_table);
-            }
+            // Calculate section hash
+            unsigned char *section_hash = (unsigned char *)malloc(0x20);
+            sha_ctx_t *section_ctx = new_sha_ctx(HASH_TYPE_SHA256, 0);
+            sha_update(section_ctx, &ctx->header.fs_headers[0], 0x200);
+            sha_get_hash(section_ctx, section_hash);
+            memcpy(&ctx->header.section_hashes[0], section_hash, 0x20);
+            free(section_hash);
+            free_sha_ctx(section_ctx);
         }
     }
+    free(pfs0_file_entry_table);
+}
+
+// Looks for title info
+void nca_control_nacp_process(nca_ctx_t *ctx, nsp_ctx_t *nsp_ctx)
+{
+    // filepath = titleid_control.romfs
+    filepath_t control_romfs_path;
+    filepath_init(&control_romfs_path);
+    filepath_copy(&control_romfs_path, &ctx->tool_ctx->settings.secure_dir_path);
+    filepath_append(&control_romfs_path, "%016" PRIx64 "_control.romfs", ctx->header.title_id);
+    printf("Extracting RomFS to %s\n", control_romfs_path.char_path);
+
+    // Extract control.nacp
+
+    FILE *fl;
+    if (!(fl = os_fopen(control_romfs_path.os_path, OS_MODE_WRITE_EDIT)))
+    {
+        fprintf(stderr, "unable to create %s: %s\n", control_romfs_path.char_path, strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+
+    nca_decrypt_key_area(ctx);
+
+    ctx->section_contexts[0].aes = new_aes_ctx(ctx->decrypted_keys[2], 16, AES_MODE_CTR);
+    ctx->section_contexts[0].offset = media_to_real(ctx->header.section_entries[0].media_start_offset);
+    ctx->section_contexts[0].sector_ofs = 0;
+    ctx->section_contexts[0].file = ctx->file;
+    ctx->section_contexts[0].crypt_type = CRYPT_CTR;
+    ctx->section_contexts[0].header = &ctx->header.fs_headers[0];
+    
+    // Calculate counter for section decryption
+    uint64_t ofs = ctx->section_contexts[0].offset >> 4;
+    for (unsigned int j = 0; j < 0x8; j++)
+    {
+        ctx->section_contexts[0].ctr[j] = ctx->section_contexts[0].header->section_ctr[0x8 - j - 1];
+        ctx->section_contexts[0].ctr[0x10 - j - 1] = (unsigned char)(ofs & 0xFF);
+        ofs >>= 8;
+    }
+
+    // Seek to RomFS, decrypt and save it
+    char *romfs = (char *)malloc(ctx->header.fs_headers[0].romfs_superblock.ivfc_header.level_headers[5].hash_data_size);
+    nca_section_fseek(&ctx->section_contexts[0], ctx->header.fs_headers[0].romfs_superblock.ivfc_header.level_headers[5].logical_offset);
+    nca_section_fread(&ctx->section_contexts[0], romfs, ctx->header.fs_headers[0].romfs_superblock.ivfc_header.level_headers[5].hash_data_size);
+    fwrite(romfs, ctx->header.fs_headers[0].romfs_superblock.ivfc_header.level_headers[5].hash_data_size, 1, fl);
+
+    fseeko64(fl, 0, SEEK_SET);
+    romfs_ctx_t romfs_ctx;
+    memset(&romfs_ctx, 0, sizeof(romfs_ctx_t));
+    romfs_ctx.file = fl;
+    romfs_process(&romfs_ctx, nsp_ctx);
+
+    fclose(fl);
 }
 
 // Modify cnmt
@@ -356,12 +399,12 @@ void nca_cnmt_process(nca_ctx_t *ctx, cnmt_ctx_t *cnmt_ctx)
 
 void nca_meta_context_process(cnmt_ctx_t *cnmt_ctx, nca_ctx_t *ctx, cnmt_header_t *cnmt_header, cnmt_extended_header_t *cnmt_extended_header, uint64_t digest_offset, uint64_t content_records_start_offset, filepath_t *filepath)
 {
+    cnmt_ctx->nca_count = 0;
     cnmt_ctx->type = cnmt_header->type;
     cnmt_ctx->title_id = cnmt_header->title_id;
     cnmt_ctx->extended_header_patch_id = cnmt_extended_header->patch_title_id;
     cnmt_ctx->title_version = cnmt_header->title_version;
     cnmt_ctx->requiredsysversion = cnmt_extended_header->required_system_version;
-    cnmt_ctx->nca_count = cnmt_header->content_entry_count;
     cnmt_ctx->extended_header_size = cnmt_header->extended_header_size;
     if (ctx->header.crypto_type2 > ctx->header.crypto_type)
         cnmt_ctx->keygen_min = ctx->header.crypto_type2;
@@ -369,11 +412,18 @@ void nca_meta_context_process(cnmt_ctx_t *cnmt_ctx, nca_ctx_t *ctx, cnmt_header_
         cnmt_ctx->keygen_min = ctx->header.crypto_type;
 
     // Read content and decrypt records
-    cnmt_ctx->cnmt_content_records = (cnmt_content_record_t *)malloc(cnmt_ctx->nca_count * sizeof(cnmt_content_record_t));
-    for (int i = 0; i < cnmt_ctx->nca_count; i++)
+    cnmt_ctx->cnmt_content_records = (cnmt_content_record_t *)malloc(sizeof(cnmt_content_record_t));
+    for (int i = 0; i < cnmt_header->content_entry_count; i++)
     {
+        cnmt_content_record_t temp_content_record;
         nca_section_fseek(&ctx->section_contexts[0], content_records_start_offset + (i * sizeof(cnmt_content_record_t)));
-        nca_section_fread(&ctx->section_contexts[0], &cnmt_ctx->cnmt_content_records[i], sizeof(cnmt_content_record_t));
+        nca_section_fread(&ctx->section_contexts[0], &temp_content_record, sizeof(cnmt_content_record_t));
+        if (temp_content_record.type != 0x6) // Skip DeltaFragment
+        {
+            memcpy(&cnmt_ctx->cnmt_content_records[cnmt_ctx->nca_count], &temp_content_record, sizeof(cnmt_content_record_t));
+            cnmt_ctx->nca_count++;
+            cnmt_ctx->cnmt_content_records = (cnmt_content_record_t *)realloc(cnmt_ctx->cnmt_content_records, (cnmt_ctx->nca_count + 1) * sizeof(cnmt_content_record_t));
+        }
     }
 
     // Get Digest, last 32 bytes of PFS0
@@ -443,26 +493,54 @@ void nca_saved_meta_process(nca_ctx_t *ctx, filepath_t *filepath)
     switch (cnmt_header.type)
     {
     case 0x80: // Application
-        nca_meta_context_process(&application_cnmt, ctx, &cnmt_header, &cnmt_extended_header, digest_offset, content_records_start_offset, filepath);
+        // Gamecard may contain more than one Application Meta
+        if (applications_cnmt_ctx.count == 0)
+        {
+            applications_cnmt_ctx.cnmt = (cnmt_ctx_t *)calloc(1, sizeof(cnmt_ctx_t));
+            applications_cnmt_ctx.cnmt_xml = (cnmt_xml_ctx_t *)calloc(1, sizeof(cnmt_xml_ctx_t));
+        }
+        else
+        {
+            applications_cnmt_ctx.cnmt = (cnmt_ctx_t *)realloc(applications_cnmt_ctx.cnmt, (applications_cnmt_ctx.count + 1) * sizeof(cnmt_ctx_t));
+            applications_cnmt_ctx.cnmt_xml = (cnmt_xml_ctx_t *)realloc(applications_cnmt_ctx.cnmt_xml, (applications_cnmt_ctx.count + 1) * sizeof(cnmt_xml_ctx_t));
+            memset(&applications_cnmt_ctx.cnmt[applications_cnmt_ctx.count], 0, sizeof(cnmt_ctx_t));
+            memset(&applications_cnmt_ctx.cnmt_xml[applications_cnmt_ctx.count], 0, sizeof(cnmt_xml_ctx_t));
+        }
+        nca_meta_context_process(&applications_cnmt_ctx.cnmt[applications_cnmt_ctx.count], ctx, &cnmt_header, &cnmt_extended_header, digest_offset, content_records_start_offset, filepath);
+        applications_cnmt_ctx.count++;
         break;
     case 0x81: // Patch
-        nca_meta_context_process(&patch_cnmt, ctx, &cnmt_header, &cnmt_extended_header, digest_offset, content_records_start_offset, filepath);
+        // Gamecard may contain more than one Patch Meta
+        if (patches_cnmt_ctx.count == 0)
+        {
+            patches_cnmt_ctx.cnmt = (cnmt_ctx_t *)calloc(1, sizeof(cnmt_ctx_t));
+            patches_cnmt_ctx.cnmt_xml = (cnmt_xml_ctx_t *)calloc(1, sizeof(cnmt_xml_ctx_t));
+        }
+        else
+        {
+            patches_cnmt_ctx.cnmt = (cnmt_ctx_t *)realloc(patches_cnmt_ctx.cnmt, (patches_cnmt_ctx.count + 1) * sizeof(cnmt_ctx_t));
+            patches_cnmt_ctx.cnmt_xml = (cnmt_xml_ctx_t *)realloc(patches_cnmt_ctx.cnmt_xml, (patches_cnmt_ctx.count + 1) * sizeof(cnmt_xml_ctx_t));
+            memset(&patches_cnmt_ctx.cnmt[patches_cnmt_ctx.count], 0, sizeof(cnmt_ctx_t));
+            memset(&patches_cnmt_ctx.cnmt_xml[patches_cnmt_ctx.count], 0, sizeof(cnmt_xml_ctx_t));
+        }
+        nca_meta_context_process(&patches_cnmt_ctx.cnmt[patches_cnmt_ctx.count], ctx, &cnmt_header, &cnmt_extended_header, digest_offset, content_records_start_offset, filepath);
+        patches_cnmt_ctx.count++;
         break;
     case 0x82: // AddOn
         // Gamecard may contain more than one Addon Meta
         if (addons_cnmt_ctx.count == 0)
         {
-            addons_cnmt_ctx.addon_cnmt = (cnmt_ctx_t *)calloc(1, sizeof(cnmt_ctx_t));
-            addons_cnmt_ctx.addon_cnmt_xml = (cnmt_xml_ctx_t *)calloc(1, sizeof(cnmt_xml_ctx_t));
+            addons_cnmt_ctx.cnmt = (cnmt_ctx_t *)calloc(1, sizeof(cnmt_ctx_t));
+            addons_cnmt_ctx.cnmt_xml = (cnmt_xml_ctx_t *)calloc(1, sizeof(cnmt_xml_ctx_t));
         }
         else
         {
-            addons_cnmt_ctx.addon_cnmt = (cnmt_ctx_t *)realloc(addons_cnmt_ctx.addon_cnmt, (addons_cnmt_ctx.count + 1) * sizeof(cnmt_ctx_t));
-            addons_cnmt_ctx.addon_cnmt_xml = (cnmt_xml_ctx_t *)realloc(addons_cnmt_ctx.addon_cnmt_xml, (addons_cnmt_ctx.count + 1) * sizeof(cnmt_xml_ctx_t));
-            memset(&addons_cnmt_ctx.addon_cnmt[addons_cnmt_ctx.count], 0, sizeof(cnmt_ctx_t));
-            memset(&addons_cnmt_ctx.addon_cnmt_xml[addons_cnmt_ctx.count], 0, sizeof(cnmt_xml_ctx_t));
+            addons_cnmt_ctx.cnmt = (cnmt_ctx_t *)realloc(addons_cnmt_ctx.cnmt, (addons_cnmt_ctx.count + 1) * sizeof(cnmt_ctx_t));
+            addons_cnmt_ctx.cnmt_xml = (cnmt_xml_ctx_t *)realloc(addons_cnmt_ctx.cnmt_xml, (addons_cnmt_ctx.count + 1) * sizeof(cnmt_xml_ctx_t));
+            memset(&addons_cnmt_ctx.cnmt[addons_cnmt_ctx.count], 0, sizeof(cnmt_ctx_t));
+            memset(&addons_cnmt_ctx.cnmt_xml[addons_cnmt_ctx.count], 0, sizeof(cnmt_xml_ctx_t));
         }
-        nca_meta_context_process(&addons_cnmt_ctx.addon_cnmt[addons_cnmt_ctx.count], ctx, &cnmt_header, &cnmt_extended_header, digest_offset, content_records_start_offset, filepath);
+        nca_meta_context_process(&addons_cnmt_ctx.cnmt[addons_cnmt_ctx.count], ctx, &cnmt_header, &cnmt_extended_header, digest_offset, content_records_start_offset, filepath);
         addons_cnmt_ctx.count++;
         break;
     default:
@@ -506,6 +584,8 @@ void nca_gamecard_process(nca_ctx_t *ctx, filepath_t *filepath, int index, cnmt_
         nca_exefs_npdm_process(ctx);
     else if (content_type == 1) // Meta nca
         nca_cnmt_process(ctx, cnmt_ctx);
+    else if (content_type == 2 && ctx->tool_ctx->settings.titlename == 1) // Control nca
+        nca_control_nacp_process(ctx, nsp_ctx);
 
     // Set distrbution type to "System"
     ctx->header.distribution = 0;
@@ -548,7 +628,8 @@ void nca_gamecard_process(nca_ctx_t *ctx, filepath_t *filepath, int index, cnmt_
     if (content_type != 1)
     {
         memcpy(cnmt_ctx->cnmt_content_records[index].hash, hash_result, 32);
-        memcpy(cnmt_ctx->cnmt_content_records[index].ncaid, hash_result, 16);
+        if (ctx->tool_ctx->settings.keepncaid != 1)
+            memcpy(cnmt_ctx->cnmt_content_records[index].ncaid, hash_result, 16);
     }
     free_sha_ctx(sha_ctx);
 
@@ -559,16 +640,19 @@ void nca_gamecard_process(nca_ctx_t *ctx, filepath_t *filepath, int index, cnmt_
     // Set hash and id for xml meta, id = first 16 bytes of hash
     strncpy(cnmt_xml_ctx->contents[index].hash, hash_hex, 64);
     cnmt_xml_ctx->contents[index].hash[64] = '\0';
-    strncpy(cnmt_xml_ctx->contents[index].id, hash_hex, 32);
+    if (content_type == 1 && ctx->tool_ctx->settings.keepncaid == 1)
+        strncpy(cnmt_xml_ctx->contents[index].id, basename(cnmt_ctx->meta_filepath.char_path), 32);
+    else
+        strncpy(cnmt_xml_ctx->contents[index].id, hash_hex, 32);
     cnmt_xml_ctx->contents[index].id[32] = '\0';
     free(hash_hex);
     free(hash_result);
 
-    // 0: tik, 1: cert, 2: cnmt.xml
-    index += 3;
+    // + cnmt.xml
+    index += 1;
 
     // Set filesize for creating nsp
-    nsp_ctx->nsp_entry[index].filesize = cnmt_xml_ctx->contents[index - 3].size;
+    nsp_ctx->nsp_entry[index].filesize = cnmt_xml_ctx->contents[index - 1].size;
 
     // Set filepath for creating nsp
     filepath_init(&nsp_ctx->nsp_entry[index].filepath);
@@ -578,13 +662,13 @@ void nca_gamecard_process(nca_ctx_t *ctx, filepath_t *filepath, int index, cnmt_
     if (content_type != 1)
     {
         nsp_ctx->nsp_entry[index].nsp_filename = (char *)calloc(1, 37);
-        strncpy(nsp_ctx->nsp_entry[index].nsp_filename, cnmt_xml_ctx->contents[index - 3].id, 0x20);
+        strncpy(nsp_ctx->nsp_entry[index].nsp_filename, cnmt_xml_ctx->contents[index - 1].id, 0x20);
         strcat(nsp_ctx->nsp_entry[index].nsp_filename, ".nca");
     }
     else // Meta nca
     {
         nsp_ctx->nsp_entry[index].nsp_filename = (char *)calloc(1, 42);
-        strncpy(nsp_ctx->nsp_entry[index].nsp_filename, cnmt_xml_ctx->contents[index - 3].id, 0x20);
+        strncpy(nsp_ctx->nsp_entry[index].nsp_filename, cnmt_xml_ctx->contents[index - 1].id, 0x20);
         strcat(nsp_ctx->nsp_entry[index].nsp_filename, ".cnmt.nca");
     }
 }
@@ -624,51 +708,51 @@ void nca_download_process(nca_ctx_t *ctx, filepath_t *filepath, int index, cnmt_
     if (ctx->has_rights_id)
     {
         cnmt_xml_ctx->contents[index].keygeneration = (unsigned char)ctx->header.rights_id[15];
-        if (ctx->has_rights_id && ((nsp_ctx->nsp_entry[0].filepath.char_path[0] == 0) || (nsp_ctx->nsp_entry[1].filepath.char_path[0] == 0)))
+        if (ctx->has_rights_id && ((nsp_ctx->nsp_entry[1].filepath.char_path[0] == 0) || (nsp_ctx->nsp_entry[2].filepath.char_path[0] == 0)))
         {
             // Convert rightsid to hex string
             char *rights_id = (char *)calloc(1, 33);
             hexBinaryString((unsigned char *)ctx->header.rights_id, 16, rights_id, 33);
 
             // Set tik file path for creating nsp
-            filepath_init(&nsp_ctx->nsp_entry[0].filepath);
-            filepath_copy(&nsp_ctx->nsp_entry[0].filepath, &ctx->tool_ctx->settings.secure_dir_path);
-            filepath_append(&nsp_ctx->nsp_entry[0].filepath, "%s.tik", rights_id); // tik filename is: rightsid + .tik
-
-            // Set cert file path for creating nsp
             filepath_init(&nsp_ctx->nsp_entry[1].filepath);
             filepath_copy(&nsp_ctx->nsp_entry[1].filepath, &ctx->tool_ctx->settings.secure_dir_path);
-            filepath_append(&nsp_ctx->nsp_entry[1].filepath, "%s.cert", rights_id); // tik filename is: rightsid + .tik
+            filepath_append(&nsp_ctx->nsp_entry[1].filepath, "%s.tik", rights_id); // tik filename is: rightsid + .tik
+
+            // Set cert file path for creating nsp
+            filepath_init(&nsp_ctx->nsp_entry[2].filepath);
+            filepath_copy(&nsp_ctx->nsp_entry[2].filepath, &ctx->tool_ctx->settings.secure_dir_path);
+            filepath_append(&nsp_ctx->nsp_entry[2].filepath, "%s.cert", rights_id); // tik filename is: rightsid + .tik
             free(rights_id);
 
             // Set tik filename for creating nsp
-            nsp_ctx->nsp_entry[0].nsp_filename = (char *)calloc(1, 37);
-            strncpy(nsp_ctx->nsp_entry[0].nsp_filename, basename(nsp_ctx->nsp_entry[0].filepath.char_path), 36);
+            nsp_ctx->nsp_entry[1].nsp_filename = (char *)calloc(1, 37);
+            strncpy(nsp_ctx->nsp_entry[1].nsp_filename, basename(nsp_ctx->nsp_entry[1].filepath.char_path), 36);
 
             // Set cert filename for creating nsp
-            nsp_ctx->nsp_entry[1].nsp_filename = (char *)calloc(1, 38);
-            strncpy(nsp_ctx->nsp_entry[1].nsp_filename, basename(nsp_ctx->nsp_entry[1].filepath.char_path), 37);
+            nsp_ctx->nsp_entry[2].nsp_filename = (char *)calloc(1, 38);
+            strncpy(nsp_ctx->nsp_entry[2].nsp_filename, basename(nsp_ctx->nsp_entry[2].filepath.char_path), 37);
 
             // Set tik file size for creating nsp
             FILE *tik_file;
-            if (!(tik_file = os_fopen(nsp_ctx->nsp_entry[0].filepath.os_path, OS_MODE_READ)))
+            if (!(tik_file = os_fopen(nsp_ctx->nsp_entry[1].filepath.os_path, OS_MODE_READ)))
             {
                 fprintf(stderr, "unable to open %s: %s\n", nsp_ctx->nsp_entry[0].filepath.char_path, strerror(errno));
                 exit(EXIT_FAILURE);
             }
             fseeko64(tik_file, 0, SEEK_END);
-            nsp_ctx->nsp_entry[0].filesize = (uint64_t)ftello64(tik_file);
+            nsp_ctx->nsp_entry[1].filesize = (uint64_t)ftello64(tik_file);
             fclose(tik_file);
 
             // Set cert file size for creating nsp
             FILE *cert_file;
-            if (!(cert_file = os_fopen(nsp_ctx->nsp_entry[1].filepath.os_path, OS_MODE_READ)))
+            if (!(cert_file = os_fopen(nsp_ctx->nsp_entry[2].filepath.os_path, OS_MODE_READ)))
             {
                 fprintf(stderr, "unable to open %s: %s\n", nsp_ctx->nsp_entry[1].filepath.char_path, strerror(errno));
                 exit(EXIT_FAILURE);
             }
             fseeko64(cert_file, 0, SEEK_END);
-            nsp_ctx->nsp_entry[1].filesize = (uint64_t)ftello64(cert_file);
+            nsp_ctx->nsp_entry[2].filesize = (uint64_t)ftello64(cert_file);
             fclose(cert_file);
 
             cnmt_xml_ctx->keygen_min = (unsigned char)ctx->header.rights_id[15];
@@ -682,6 +766,10 @@ void nca_download_process(nca_ctx_t *ctx, filepath_t *filepath, int index, cnmt_
         else
             cnmt_xml_ctx->contents[index].keygeneration = ctx->header.crypto_type;
     }
+
+    // Process control nca
+    if (content_type == 2 && ctx->tool_ctx->settings.titlename == 1)
+        nca_control_nacp_process(ctx, nsp_ctx);
 
     char *hash_hex = (char *)calloc(1, 65);
     if (content_type != 1) // Meta nca lacks of content records
@@ -712,6 +800,7 @@ void nca_download_process(nca_ctx_t *ctx, filepath_t *filepath, int index, cnmt_
 
         hexBinaryString(meta_hash, 32, hash_hex, 65);
     }
+    fclose(ctx->file);
 
     // Set hash and id for xml meta, id = first 16 bytes of hash
     strncpy(cnmt_xml_ctx->contents[index].hash, hash_hex, 64);
